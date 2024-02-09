@@ -2,27 +2,32 @@ import numpy as np
 
 from constants import *
 import scene_object
-
+import materials
 
 EPSILON = 0.001
 
 
 class Sphere(scene_object.Object):
-    def __init__(self, x=4, y=0, z=0, radius=1, color=YELLOW):
+    def __init__(self, x=4, y=0, z=0, radius=1, material=materials.Material(YELLOW)):
         super().__init__(x, y, z)
         self.radius = radius
-        self.color = color
+        self.material = material
+
+    def normal_vector(self, intersection_point):
+        normal_vector = intersection_point - self.position
+        return normal_vector / np.linalg.norm(normal_vector)
 
     def small_normal_offset(self, position):
-        normal_vector = position - self.position
-        normal_vector = normal_vector / np.linalg.norm(normal_vector)
-        return normal_vector * EPSILON
+        return self.normal_vector(position) * EPSILON
+
+    def compute_surface_color(self, intersection_point, direction_vector):
+        #return self.material.color
+        return self.material.compute_color(self.normal_vector(intersection_point), direction_vector)
 
     def intersection(self, starting_position, direction_vector):
         a = np.dot(direction_vector, direction_vector)
-        b = - 2 * (direction_vector[0] * self.position[0] + direction_vector[1] * self.position[1] + direction_vector[
-            2] * self.position[2]) + 2 * (starting_position[0] * direction_vector[0] + starting_position[1] * direction_vector[1] + starting_position[2] * direction_vector[2])
-        c = np.dot(self.position, self.position) + np.dot(starting_position, starting_position) - self.radius ** 2 - 2 * (starting_position[0] * self.position[0] + starting_position[1] * self.position[1] + starting_position[2] * self.position[2])
+        b = - 2 * np.dot(direction_vector, self.position) + 2 * np.dot(starting_position, direction_vector)
+        c = np.dot(self.position, self.position) + np.dot(starting_position, starting_position) - self.radius ** 2 - 2 * np.dot(starting_position, self.position)
         solution = solve_quadratic(a, b, c)
         if solution is not None:
             t1, t2 = solution
@@ -30,13 +35,13 @@ class Sphere(scene_object.Object):
             if t < 0:
                 t = max(t1, t2)
                 if t < 0:
-                    return False
-            return t
-        return False
+                    return False, None
+            return True, t
+        return False, None
 
 
 class PointSource(scene_object.Object):
-    def __init__(self, x=0, y=0, z=10):
+    def __init__(self, x=4, y=0, z=1000):
         super().__init__(x, y, z)
         self.radius = 10
 
