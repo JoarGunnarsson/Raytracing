@@ -20,9 +20,9 @@ class Sphere(scene_object.Object):
     def small_normal_offset(self, position):
         return self.normal_vector(position) * EPSILON
 
-    def compute_surface_color(self, intersection_point, direction_vector):
+    def compute_surface_color(self, intersection_point, direction_vector, light_direction_vector):
         #return self.material.color
-        return self.material.compute_color(self.normal_vector(intersection_point), direction_vector)
+        return self.material.compute_color(self.normal_vector(intersection_point), direction_vector, light_direction_vector)
 
     def intersection(self, starting_position, direction_vector):
         a = np.dot(direction_vector, direction_vector)

@@ -4,26 +4,7 @@ from constants import *
 import matplotlib.pyplot as plt
 import objects
 import player
-import scene_object
 import math
-
-
-class Screen(scene_object.Object):
-    def __init__(self, x=-8, y=0, z=0, width=1, height=1):
-        super().__init__(x, y, z)
-        self.width = width
-        self.height = height
-        self.pixels_x = WIDTH
-        self.pixels_y = HEIGHT
-        self.image = np.zeros((WIDTH, HEIGHT, 3))
-        self.normal_vector = np.array([-1, 0, 0])
-        self.y_vector = np.array([0, 0, 1])
-        self.x_vector = np.cross(self.normal_vector, self.y_vector)
-
-    def index_to_position(self, i, j):
-        x = self.x_vector * (-self.width/2 + i * self.width / self.pixels_x)
-        y = self.y_vector * (-self.height / 2 + (self.pixels_y - j) * self.height / self.pixels_y)
-        return x + y + self.position
 
 
 def find_closes_intersected_object(starting_position, direction_vector, object_list):
@@ -60,15 +41,14 @@ def get_pixel_color(i, j, screen, camera, scene_objects, light_sources):
         if obscuring_object is not None:
             return BLACK
 
-        return seen_object.compute_surface_color(intersection_point, direction_vector_towards_light)
+        return seen_object.compute_surface_color(intersection_point, direction_vector, direction_vector_towards_light)
 
 
 def raytrace():
-    scene_objects = [objects.Sphere()]
+    scene_objects = [objects.Sphere(z=0, radius=1), objects.Sphere(z=1, radius=0.5)]
     light_sources = [objects.PointSource()]
-    camera = player.Player(x=-10)
-    screen = Screen()
-
+    camera = player.Player(x=1, z=3)
+    screen = camera.screen
     for j, column in enumerate(screen.image):
         for i, row in enumerate(column):
             screen.image[i][j] = get_pixel_color(i, j, screen, camera, scene_objects, light_sources)
