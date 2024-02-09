@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import objects
 import player
 import scene_object
-
+import math
 
 class Screen(scene_object.Object):
     def __init__(self, x=1, y=0, z=0, width=1, height=1):
@@ -28,19 +28,20 @@ class Screen(scene_object.Object):
 def raytrace():
     # TODO: Take into account the camera position.
     # TODO: Check for object intersection.
-
-    scene_objects = [objects.Sphere()]
+    global temp
+    scene_objects = [objects.Sphere(z=math.sin(temp))]
+    temp += 0.1
     lights = [objects.PointSource()]
     camera = player.Player()
     screen = Screen()
 
-    for i, row in enumerate(screen.image):
-        for j, column in enumerate(row):
-            pixel_vector = screen.index_to_position(i, j)
+    for j, column in enumerate(screen.image):
+        for i, row in enumerate(column):
+            pixel_vector = screen.index_to_position(j, i)
             direction_vector = pixel_vector - camera.position
             direction_vector = direction_vector / np.linalg.norm(direction_vector)
             min_t = 10**10
-            pixel_color = BLACK
+            pixel_color = SKY_BLUE
             light = lights[0]
             for obj in scene_objects:
                 t = obj.intersection(camera.position, direction_vector)
@@ -51,6 +52,7 @@ def raytrace():
                     direction_vector_towards_light = direction_vector_towards_light / np.linalg.norm(direction_vector_towards_light)
                     t_light = obj.intersection((camera.position + direction_vector * t) + obj.small_normal_offset(camera.position + direction_vector * t), direction_vector_towards_light)
                     if not t_light:
+                        pixel_color = BLACK
                         continue
 
                     min_t = t
@@ -61,9 +63,12 @@ def raytrace():
 
 
 def main():
-    image = raytrace()
-    plt.imsave(image_directory + "test.png", image)
+    for frame in range(100):
+        print(f"Generating frame {frame}.")
+        image = raytrace()
+        plt.imsave(image_directory + f"test{frame}.png", image)
 
 
 if __name__ == '__main__':
+    temp = 0
     main()

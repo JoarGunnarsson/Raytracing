@@ -36,7 +36,7 @@ class Sphere(scene_object.Object):
 
 
 class PointSource(scene_object.Object):
-    def __init__(self, x=4, y=10, z=0):
+    def __init__(self, x=0, y=0, z=10):
         super().__init__(x, y, z)
         self.radius = 10
 
