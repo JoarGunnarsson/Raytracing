@@ -12,8 +12,8 @@ def find_closes_intersected_object(starting_position, direction_vector, object_l
     min_t = np.inf
     closest_object = None
     for obj in object_list:
-        intersects, t = obj.intersection(starting_position, direction_vector)
-        if not t:
+        t = obj.intersection(starting_position, direction_vector)
+        if t is None:
             continue
         if t <= min_t:
             min_t = t
@@ -63,7 +63,7 @@ def get_intersection_color(start_position, direction_vector, scene_objects, ligh
 
 def raytrace():
     scene_objects = [objects.Sphere(z=-1000, radius=1000, material=materials.Material(diffuse_color=GREY)),
-                     objects.Sphere(z=1, radius=1, material=materials.Material(diffuse_color=BLUE)),
+                     objects.Sphere(z=1, radius=1, material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
     light_sources = [objects.PointSource()]
     camera = player.Player(x=0, y=1, z=4)
@@ -81,5 +81,4 @@ def main():
 
 
 if __name__ == '__main__':
-    temp = 0
     main()

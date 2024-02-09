@@ -1,5 +1,5 @@
-WIDTH = 900
-HEIGHT = 900
+WIDTH = 1000
+HEIGHT = 1000
 image_directory = "Images/"
 WHITE = [1.0, 1.0, 1.0]
 BLACK = [0.0, 0.0, 0.0]

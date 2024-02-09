@@ -28,15 +28,18 @@ class Sphere(scene_object.Object):
         b = - 2 * np.dot(direction_vector, self.position) + 2 * np.dot(starting_position, direction_vector)
         c = np.dot(self.position, self.position) + np.dot(starting_position, starting_position) - self.radius ** 2 - 2 * np.dot(starting_position, self.position)
         solution = solve_quadratic(a, b, c)
-        if solution is not None:
-            t1, t2 = solution
-            t = min(t1, t2)
-            if t < 0:
-                t = max(t1, t2)
-                if t < 0:
-                    return False, None
-            return True, t
-        return False, None
+
+        if solution is None:
+            return None
+
+        t1, t2 = solution
+        if t1 < 0 and t2 < 0:
+            return None
+        elif t1 < 0:
+            return t2
+        elif t2 < 0:
+            return True, t1
+        return min(t1, t2)
 
 
 class PointSource(scene_object.Object):
