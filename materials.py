@@ -1,12 +1,15 @@
 import numpy as np
 from constants import *
+import main
+
 
 class Material:
-    def __init__(self, diffuse_color=GREEN, specular_color=WHITE, diffusion_coefficient=1, specular_coefficient=1):
+    def __init__(self, diffuse_color=GREEN, specular_color=WHITE, diffusion_coefficient=0.7, specular_coefficient=0.5):
         self.diffuse_color = diffuse_color
         self.specular_color = specular_color
         self.diffusion_coefficient = diffusion_coefficient
         self.specular_coefficient = specular_coefficient
+        self.reflection_coefficient = 0.5
 
     def compute_color(self, normal_vector, direction_vector, light_vector):
         I_diffuse = self.diffusion_coefficient * np.dot(normal_vector, light_vector)
