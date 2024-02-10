@@ -36,7 +36,7 @@ class Screen(Object):
                  y_vector=np.array([0, 0, 1]), width=1, height=1):
         super().__init__(x, y, z)
         self.width = width
-        self.height = height
+        self.height = width * HEIGHT / WIDTH
         self.pixels_x = WIDTH
         self.pixels_y = HEIGHT
         self.image = np.zeros((HEIGHT, WIDTH, 3))
@@ -79,6 +79,8 @@ class Sphere(Object):
                                            light_vector_matrix)
 
     def intersection(self, starting_positions, direction_vectors):
+        # TODO: Input vectors can be inf and nan, if we are checkign a reflection... Perhaps this does not need to be
+        # computed etc.
         dot_product = np.sum(direction_vectors * starting_positions, axis=2)
         B = 2 * (dot_product - np.dot(direction_vectors, self.position))
         # TODO: Issue with starting_positions.
@@ -104,8 +106,7 @@ class PointSource(LightSource):
         super().__init__(x, y, z, intensity=intensity)
 
     def compute_light_intensity(self, intersection_points, scene_objects):
-        width, height, _ = intersection_points.shape
-        intensities = np.zeros((height, width))
+        intensities = np.zeros((HEIGHT, WIDTH))
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
