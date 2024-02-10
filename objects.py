@@ -11,7 +11,7 @@ class Object:
         self.x = x
         self.y = y
         self.z = z
-        self.position = np.array([x, y, z])
+        self.position = np.array([x, y, z], dtype=float)
 
     def get_position(self):
         return self.position

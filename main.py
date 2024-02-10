@@ -18,23 +18,22 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
 
 
 def get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1):
-    # TODO: Start_position -> Start_positions
-
     colors = np.full(direction_vectors.shape, BLACK)
     seen_objects, T = objects.find_closes_intersected_object(starting_positions, direction_vectors, scene_objects)
     no_seen_object_indices = seen_objects == None
     colors[no_seen_object_indices] = SKY_BLUE
     # TODO: Invalid T-elements: None. Only look at good indices.
-    intersection_points = starting_positions + direction_vectors * T[:, :, None]
 
+    intersection_points = starting_positions + direction_vectors * T[:, :, None]
     get_position_vectorized = np.vectorize(get_position, otypes=[object])
     positions = get_position_vectorized(seen_objects)
     positions = np.apply_along_axis(lambda x: np.stack(x, axis=0), axis=-1, arr=positions)
+
     normals = intersection_points - positions
     norms = np.linalg.norm(normals, axis=-1, keepdims=True)
     normal_vectors = normals / norms
-    EPSILON = 0.001
 
+    EPSILON = 0.001
     intersection_points += normal_vectors * EPSILON
 
     combined_colors = np.full(direction_vectors.shape, BLACK)
