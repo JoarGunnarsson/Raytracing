@@ -1,21 +1,31 @@
 # Python Ray Tracing Project
 
-This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path of light takes, interaction with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Diffusive and specular effects are available, as well as reflections. Currently, only spheres are implemented.
+This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path of light takes, interaction with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Diffusive and specular effects are available, as well as reflections. Currently, only spheres are implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source
 
-<p align="center">
-<img src="Images/reflections.png" alt="Reflection Example" width="400"/>
-</p>
+
+### Example scene
+Below is an example scene, using two different kinds light sources.
+
+<div style="display: flex; justify-content: center;">
+  <div style="margin-right: 20px;">
+    <img src="Images/point_reflections.png" alt="Point light source reflection Example" width="300"/>
+    <p style="text-align: center;">Point light source</p>
+  </div>
+  <div>
+    <img src="Images/disk_reflections.png" alt="Disk light source reflection Example" width="300"/>
+    <p style="text-align: center;">Disk light source</p>
+  </div>
+</div>
 
 ## Overview
 
-The project consists of several Python files:
+The project consists of several Python files, including:
 
 - `main.py`: The main file that initiates the ray tracing process.
-- `constants.py`: Contains constant values used throughout the project.
-- `objects.py`: Defines classes for geometric objects like spheres and light sources.
-- `player.py`: Defines the player's viewpoint and screen.
+- `objects.py`: Defines classes for objects like the camera, screen, geometric shapes, and light sources.
+  - Additional shapes and light sources can be added here
 - `materials.py`: Defines material properties used for shading objects.
-- `screen.py`: Defines the screen class for generating the final image.
+  - Additional material properties can be added for increased realism.
 
 ## Dependencies
 - `numpy`
@@ -29,4 +39,4 @@ To run the ray tracing simulation and generate an image, simply execute the `mai
 python main.py
 ```
 
-You can define your own objects, light sources and materials in the `main.py` to suit your needs.
+You can define your own objects, light sources and materials in the `main.py`, `objects.py`, and `materials.py` to suit your needs.
