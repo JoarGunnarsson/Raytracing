@@ -8,15 +8,25 @@ Below is an example scene, using two different kinds light sources.
 
 <div style="display: flex; justify-content: center;">
   <div style="margin-right: 20px;">
-    <img src="Images/point_reflections.png" alt="Point light source reflection example" width="200"/>
+    <img src="Images/point_reflections.png" alt="Point light source reflection example" width="300"/>
     <p style="text-align: center;">Point light source</p>
   </div>
   <div>
-    <img src="Images/disk_reflections.png" alt="Disk light source reflection example" width="200"/>
+    <img src="Images/disk_reflections.png" alt="Disk light source reflection example" width="300"/>
     <p style="text-align: center;">Disk light source</p>
   </div>
 </div>
 
+<div style="display: flex; justify-content: center;">
+  <figure style="margin-right: 20px;">
+    <img src="Images/point_reflections.png" alt="Point light source reflection example" width="300"/>
+    <p style="text-align: center;">Point light source</p>
+  </figure>
+  <figure>
+    <img src="Images/disk_reflections.png" alt="Disk light source reflection example" width="300"/>
+    <p style="text-align: center;">Disk light source</p>
+  </figure>
+</div>
 ## Overview
 
 The project consists of several Python files, including:
