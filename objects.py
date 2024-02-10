@@ -37,7 +37,7 @@ class Screen(Object):
         self.height = height
         self.pixels_x = WIDTH
         self.pixels_y = HEIGHT
-        self.image = np.zeros((WIDTH, HEIGHT, 3))
+        self.image = np.zeros((HEIGHT, WIDTH, 3))
         self.normal_vector = normal_vector
         self.y_vector = y_vector
         self.x_vector = np.cross(self.normal_vector, self.y_vector)
