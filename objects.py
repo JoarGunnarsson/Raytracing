@@ -64,24 +64,26 @@ class Sphere(Object):
         self.radius = radius
         self.material = material
 
-    def normal_vector(self, intersection_point):
-        normal_vector = intersection_point - self.position
-        return normal_vector / np.linalg.norm(normal_vector)
+    def normal_vector(self, intersection_points):
+        normal_vector = intersection_points - self.position
+        norms = np.linalg.norm(normal_vector)
+        return normal_vector / norms
 
     def small_normal_offset(self, position):
         return self.normal_vector(position) * EPSILON
 
-    def compute_surface_color(self, intersection_point, direction_vector, light_direction_vector):
-        return self.material.compute_color(self.normal_vector(intersection_point), direction_vector,
-                                           light_direction_vector)
+    def compute_surface_color(self, intersection_points, direction_vectors, light_vector_matrix):
+        return self.material.compute_color(self.normal_vector(intersection_points), direction_vectors,
+                                           light_vector_matrix)
 
     def intersection(self, starting_positions, direction_vectors):
-        dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
+        dot_product = np.sum(direction_vectors * starting_positions, axis=2)
         B = 2 * (dot_product - np.dot(direction_vectors, self.position))
-        c = np.linalg.norm(self.position - starting_positions) ** 2 - self.radius ** 2
+        # TODO: Issue with starting_positions.
+        difference_in_positions = self.position - starting_positions
+        c = np.sum(difference_in_positions * difference_in_positions, axis=2) - self.radius ** 2
         C = np.full(B.shape, c)
         solutions = solve_quadratic(B, C)
-
         return solutions
 
 
@@ -101,15 +103,23 @@ class PointSource(LightSource):
         self.intensity = 15
 
     def compute_light_intensity(self, intersection_points, scene_objects):
+        width, height, _ = intersection_points.shape
+        intensities = np.zeros((height, width))
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
-        obscuring_object, _ = find_closes_intersected_object(intersection_points, light_vectors, scene_objects)
-        if obscuring_object is not None:
-            return 0, [light_vectors]
-        distances = np.linalg.norm(intersection_points - self.position, axis=-1, keepdims=True)
-        print(light_vectors.shape)
-        return self.intensity / distances**2, [light_vectors]
+        obscuring_objects, _ = find_closes_intersected_object(intersection_points, light_vectors, scene_objects)
+
+        obscured_indices = obscuring_objects != None
+        intensities[obscured_indices] = 0
+
+        non_obscured_indices = obscuring_objects == None
+        distances = np.sum((intersection_points - self.position) * (intersection_points - self.position), axis=2)
+        intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]
+        #print(obscuring_objects)
+        #print()
+        #print(np.array([[round(value, 3) for value in x] for x in intensities]))
+        return intensities, [light_vectors]
 
 
 class DiskSource(LightSource):
@@ -155,9 +165,9 @@ def solve_quadratic(B, C):
     solutions = np.full(B.shape, None, dtype=object)
 
     discriminants = B ** 2 - 4 * C
-    non_positive_indices = discriminants <= 0
+    imaginary_solutions_indices = discriminants <= 0
 
-    discriminants[non_positive_indices] = 0
+    discriminants[imaginary_solutions_indices] = 0
 
     root_discriminant = discriminants ** 0.5
     x1 = -B / 2 + root_discriminant / 2
@@ -171,9 +181,9 @@ def solve_quadratic(B, C):
     max_ok_indices = minimum_solutions.any() <= 0 < maximum_solutions.any()
     solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
-    none_ok_indices = minimum_solutions.any() <= 0 and maximum_solutions.any() <= 0
-    solutions[none_ok_indices] = None
-    solutions[non_positive_indices] = None
+    negative_solutions_indices = minimum_solutions.any() <= 0 and maximum_solutions.any() <= 0
+    solutions[negative_solutions_indices] = None
+    solutions[imaginary_solutions_indices] = None
     return solutions
 
 
@@ -184,10 +194,13 @@ def find_closes_intersected_object(starting_positions, direction_vectors, object
 
     for obj in object_list:
         t = obj.intersection(starting_positions, direction_vectors)
+        print(t)
+        print()
         none_indices = t == None
         t[none_indices] = -1
         positive_indices = t > 0
         min_t[positive_indices] = np.minimum(min_t[positive_indices], t[positive_indices])
 
         closest_objects[positive_indices] = obj
+
     return closest_objects, min_t

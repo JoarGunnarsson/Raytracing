@@ -14,7 +14,6 @@ class Material:
         self.shininess = shininess
 
     def compute_color(self, normal_vector, direction_vector, light_vector):
-        return np.array(self.diffuse_color)
         I_diffuse = self.diffusion_coefficient * np.dot(normal_vector, light_vector)
 
         R = - 2 * np.dot(normal_vector, light_vector) * normal_vector + light_vector

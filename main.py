@@ -18,11 +18,13 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
 
 def get_intersection_color(start_position, direction_vectors, scene_objects, light_sources, depth=1):
     # TODO: Start_position -> Start_positions
+    starting_positions = np.full(direction_vectors.shape, start_position)
     colors = np.full(direction_vectors.shape, BLACK)
-    seen_objects, T = objects.find_closes_intersected_object(start_position, direction_vectors, scene_objects)
+    seen_objects, T = objects.find_closes_intersected_object(starting_positions, direction_vectors, scene_objects)
     no_seen_object_indices = seen_objects == None
     colors[no_seen_object_indices] = SKY_BLUE
-    intersection_points = start_position + direction_vectors * T[:, :, None] # TODO: Does this work? I think so
+    # TODO: Invalid T-elements: None. Only look at good indices.
+    intersection_points = start_position + direction_vectors * T[:, :, None]
 
     # intersection_points += seen_object.small_normal_offset(intersection_point)
     # TODO: Enable the above line again, somehow.
@@ -34,13 +36,11 @@ def get_intersection_color(start_position, direction_vectors, scene_objects, lig
             for j, y in enumerate(x):
                 if y is None:
                     continue
-                #print(light_vectors_matrix[i][j])
-                clr = (y.compute_surface_color(intersection_points[j][i], direction_vectors[j][i],
-                                              np.array([1, 0, 0])))
-                colors[i][j] = clr
 
-        #print(seen_objects)
-        #print(T)
+                clr = (y.compute_surface_color(intersection_points[i][j], direction_vectors[i][j],
+                                              light_vectors_matrix[0][i][j]))
+                colors[i][j] = np.array(clr) * light_intensities[i][j]
+
         return colors
         zero_light_intensity_indices = light_intensities == 0
         non_zero_light_intensity_indices = light_intensities != 0
