@@ -153,10 +153,11 @@ class DiskSource(LightSource):
 def solve_quadratic(B, C):
     """Solves a special case quadratic equation with a = 1."""
     solutions = np.full(B.shape, None, dtype=object)
-    A = np.eye(B.shape[0])
 
     discriminants = B ** 2 - 4 * C
-    positive_indices = discriminants > 0
+    non_positive_indices = discriminants <= 0
+
+    discriminants[non_positive_indices] = 0
 
     root_discriminant = discriminants ** 0.5
     x1 = -B / 2 + root_discriminant / 2
@@ -172,6 +173,7 @@ def solve_quadratic(B, C):
 
     none_ok_indices = minimum_solutions.any() <= 0 and maximum_solutions.any() <= 0
     solutions[none_ok_indices] = None
+    solutions[non_positive_indices] = None
     return solutions
 
 
@@ -184,9 +186,8 @@ def find_closes_intersected_object(starting_positions, direction_vectors, object
         t = obj.intersection(starting_positions, direction_vectors)
         none_indices = t == None
         t[none_indices] = -1
-        new_min_found_indices = t > 0 #and t < min_t
-        print(t[new_min_found_indices])
-        min_t[new_min_found_indices] = t[new_min_found_indices]
-        closest_objects[new_min_found_indices] = obj
+        positive_indices = t > 0
+        min_t[positive_indices] = np.minimum(min_t[positive_indices], t[positive_indices])
 
+        closest_objects[positive_indices] = obj
     return closest_objects, min_t

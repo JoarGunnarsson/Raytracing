@@ -35,12 +35,12 @@ def get_intersection_color(start_position, direction_vectors, scene_objects, lig
                 if y is None:
                     continue
                 #print(light_vectors_matrix[i][j])
-                clr = (y.compute_surface_color(intersection_points[i][j], direction_vectors[i][j],
-                                              np.array([1,0, 0])))
+                clr = (y.compute_surface_color(intersection_points[j][i], direction_vectors[j][i],
+                                              np.array([1, 0, 0])))
                 colors[i][j] = clr
 
-        print(seen_objects)
-        print(T)
+        #print(seen_objects)
+        #print(T)
         return colors
         zero_light_intensity_indices = light_intensities == 0
         non_zero_light_intensity_indices = light_intensities != 0
@@ -75,7 +75,7 @@ def get_intersection_color(start_position, direction_vectors, scene_objects, lig
 
 
 def raytrace():
-    scene_objects = [objects.Sphere(z=-1000, radius=10000, material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3, reflection_coefficient=0.24)),
+    scene_objects = [objects.Sphere(z=-1000, radius=1000, material=materials.Material(diffuse_color=GREY, specular_coefficient=0.3, reflection_coefficient=0.24)),
                      objects.Sphere(z=1, radius=1, material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
     light_sources = [objects.PointSource(x=4, y=0, z=5)]
