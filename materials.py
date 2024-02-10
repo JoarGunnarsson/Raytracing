@@ -1,6 +1,5 @@
 import numpy as np
 from constants import *
-import main
 
 
 class Material:

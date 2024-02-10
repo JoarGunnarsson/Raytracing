@@ -1,25 +1,9 @@
 import numpy as np
-
 from constants import *
 import matplotlib.pyplot as plt
 import objects
-import player
-import math
 import materials
-
-
-def find_closes_intersected_object(starting_position, direction_vector, object_list):
-    min_t = np.inf
-    closest_object = None
-    for obj in object_list:
-        t = obj.intersection(starting_position, direction_vector)
-        if t is None:
-            continue
-        if t <= min_t:
-            min_t = t
-            closest_object = obj
-
-    return closest_object, min_t
+import time
 
 
 def get_pixel_color(i, j, screen, camera, scene_objects, light_sources):
@@ -32,41 +16,45 @@ def get_pixel_color(i, j, screen, camera, scene_objects, light_sources):
 
 
 def get_intersection_color(start_position, direction_vector, scene_objects, light_sources, depth=1):
-    seen_object, t = find_closes_intersected_object(start_position, direction_vector, scene_objects)
+    seen_object, t = objects.find_closes_intersected_object(start_position, direction_vector, scene_objects)
     if seen_object is None:
         return SKY_BLUE
 
     intersection_point = start_position + direction_vector * t
     intersection_point += seen_object.small_normal_offset(intersection_point)
     for light in light_sources:
-        direction_vector_towards_light = light.position - intersection_point
-        direction_vector_towards_light = direction_vector_towards_light / np.linalg.norm(
-            direction_vector_towards_light)
-        obscuring_object, _ = find_closes_intersected_object(intersection_point, direction_vector_towards_light,
-                                                             scene_objects)
-        if obscuring_object is not None:
+        light_intensity, light_vectors = light.compute_light_intensity(intersection_point, scene_objects)
+        if light_intensity == 0:
             if depth == 0:
                 return BLACK
-            normal_vector = seen_object.normal_vector(intersection_point)
-            reflection_vector = - 2 * np.dot(normal_vector, direction_vector) * normal_vector + direction_vector
-            return BLACK + seen_object.material.reflection_coefficient * np.array(get_intersection_color(intersection_point, reflection_vector, scene_objects, light_sources, depth-1))
 
-        surface_color = seen_object.compute_surface_color(intersection_point, direction_vector, direction_vector_towards_light)
+            normal_vector = seen_object.normal_vector(intersection_point)
+            alpha = seen_object.material.reflection_coefficient
+            reflection_vector = - 2 * np.dot(normal_vector, direction_vector) * normal_vector + direction_vector
+            color = get_intersection_color(intersection_point, reflection_vector, scene_objects, light_sources, depth-1)
+
+            return np.array(BLACK) * (1 - alpha) + alpha * np.array(color)
+        surface_color = np.array([0.0, 0.0, 0.0])
+        for light_vector in light_vectors:
+            surface_color += np.array(seen_object.compute_surface_color(intersection_point, direction_vector, light_vector)) * light_intensity / len(light_vectors)
+
         if depth == 0:
             return surface_color
+
         normal_vector = seen_object.normal_vector(intersection_point)
         reflection_vector = - 2 * np.dot(normal_vector, direction_vector) * normal_vector + direction_vector
+        alpha = seen_object.material.reflection_coefficient
+        color = get_intersection_color(intersection_point, reflection_vector, scene_objects, light_sources, depth - 1)
 
-        return np.array(surface_color) + seen_object.material.reflection_coefficient * np.array(get_intersection_color(intersection_point, reflection_vector,
-                                                                             scene_objects, light_sources, depth - 1))
+        return surface_color * (1 - alpha) + alpha * np.array(color)
 
 
 def raytrace():
-    scene_objects = [objects.Sphere(z=-1000, radius=1000, material=materials.Material(diffuse_color=GREY)),
+    scene_objects = [objects.Sphere(z=-1000, radius=1000, material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3, reflection_coefficient=0.24)),
                      objects.Sphere(z=1, radius=1, material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.PointSource()]
-    camera = player.Player(x=0, y=1, z=4)
+    light_sources = [objects.DiskSource(z=5)]
+    camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     for j, column in enumerate(screen.image):
         for i, row in enumerate(column):
@@ -76,8 +64,10 @@ def raytrace():
 
 
 def main():
+    start = time.time()
     image = raytrace()
     plt.imsave(image_directory + "test.png", image)
+    print(f"Executing time: {time.time() - start}")
 
 
 if __name__ == '__main__':
