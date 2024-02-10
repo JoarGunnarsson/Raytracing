@@ -42,10 +42,20 @@ class Screen(Object):
         self.y_vector = y_vector
         self.x_vector = np.cross(self.normal_vector, self.y_vector)
 
-    def index_to_position(self, i, j):
-        x = self.x_vector * (-self.width / 2 + i * self.width / self.pixels_x)
-        y = self.y_vector * (-self.height / 2 + (self.pixels_y - j) * self.height / self.pixels_y)
-        return x + y + self.position
+    def index_to_position(self, X, Y):
+        X = X * self.width / self.pixels_x - self.width / 2
+        X = multiply_matrix_by_vector_elementwise(X, self.x_vector)
+
+        Y = (self.pixels_y - Y) * self.height / self.pixels_y - self.height / 2
+        Y = multiply_matrix_by_vector_elementwise(Y, self.y_vector)
+        return X + Y + self.position
+
+
+def multiply_matrix_by_vector_elementwise(A, v):
+    A_height, A_width = A.shape
+    A = A.reshape(-1, 1, 1)
+    A = A * v
+    return A.reshape(A_height, A_width, 3)
 
 
 class Sphere(Object):
@@ -65,22 +75,14 @@ class Sphere(Object):
         return self.material.compute_color(self.normal_vector(intersection_point), direction_vector,
                                            light_direction_vector)
 
-    def intersection(self, starting_position, direction_vector):
-        b = 2 * (np.dot(starting_position, direction_vector) - np.dot(direction_vector, self.position))
-        c = np.linalg.norm(self.position - starting_position) ** 2 - self.radius ** 2
-        solution = solve_quadratic(b, c)
+    def intersection(self, starting_positions, direction_vectors):
+        dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
+        B = 2 * (dot_product - np.dot(direction_vectors, self.position))
+        c = np.linalg.norm(self.position - starting_positions) ** 2 - self.radius ** 2
+        C = np.full(B.shape, c)
+        solutions = solve_quadratic(B, C)
 
-        if solution is None:
-            return None
-
-        t1, t2 = solution
-        if t1 < 0 and t2 < 0:
-            return None
-        elif t1 < 0:
-            return t2
-        elif t2 < 0:
-            return t1
-        return min(t1, t2)
+        return solutions
 
 
 class LightSource(Object):
@@ -98,14 +100,16 @@ class PointSource(LightSource):
         super().__init__(x, y, z)
         self.intensity = 15
 
-    def compute_light_intensity(self, intersection_point, scene_objects):
-        light_vector = self.position - intersection_point
-        light_vector = light_vector / np.linalg.norm(light_vector)
-        obscuring_object, _ = find_closes_intersected_object(intersection_point, light_vector, scene_objects)
+    def compute_light_intensity(self, intersection_points, scene_objects):
+        light_vectors = self.position - intersection_points
+        norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
+        light_vectors = light_vectors / norms
+        obscuring_object, _ = find_closes_intersected_object(intersection_points, light_vectors, scene_objects)
         if obscuring_object is not None:
-            return 0, [light_vector]
-        distance = np.linalg.norm(intersection_point - self.position)
-        return self.intensity / distance**2, [light_vector]
+            return 0, [light_vectors]
+        distances = np.linalg.norm(intersection_points - self.position, axis=-1, keepdims=True)
+        print(light_vectors.shape)
+        return self.intensity / distances**2, [light_vectors]
 
 
 class DiskSource(LightSource):
@@ -146,28 +150,43 @@ class DiskSource(LightSource):
         return total_intensity, light_vectors
 
 
-def solve_quadratic(b, c):
+def solve_quadratic(B, C):
     """Solves a special case quadratic equation with a = 1."""
-    discriminant = b ** 2 - 4 * c
-    if discriminant <= 0:
-        return None
+    solutions = np.full(B.shape, None, dtype=object)
+    A = np.eye(B.shape[0])
 
-    root_discriminant = discriminant ** 0.5
-    x1 = -b / 2 + root_discriminant / 2
-    x2 = -b / 2 - root_discriminant / 2
+    discriminants = B ** 2 - 4 * C
+    positive_indices = discriminants > 0
 
-    return x1, x2
+    root_discriminant = discriminants ** 0.5
+    x1 = -B / 2 + root_discriminant / 2
+    x2 = -B / 2 - root_discriminant / 2
+
+    minimum_solutions = np.minimum(x1, x2)
+    maximum_solutions = np.maximum(x1, x2)
+    min_ok_indices = minimum_solutions > 0
+    solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+
+    max_ok_indices = minimum_solutions.any() <= 0 < maximum_solutions.any()
+    solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
+
+    none_ok_indices = minimum_solutions.any() <= 0 and maximum_solutions.any() <= 0
+    solutions[none_ok_indices] = None
+    return solutions
 
 
-def find_closes_intersected_object(starting_position, direction_vector, object_list):
-    min_t = np.inf
-    closest_object = None
+def find_closes_intersected_object(starting_positions, direction_vectors, object_list):
+    height, width, _ = direction_vectors.shape
+    min_t = np.zeros((height, width)) + np.inf
+    closest_objects = np.full((height, width), None, dtype=Object)
+
     for obj in object_list:
-        t = obj.intersection(starting_position, direction_vector)
-        if t is None:
-            continue
-        if t <= min_t:
-            min_t = t
-            closest_object = obj
+        t = obj.intersection(starting_positions, direction_vectors)
+        none_indices = t == None
+        t[none_indices] = -1
+        new_min_found_indices = t > 0 #and t < min_t
+        print(t[new_min_found_indices])
+        min_t[new_min_found_indices] = t[new_min_found_indices]
+        closest_objects[new_min_found_indices] = obj
 
-    return closest_object, min_t
+    return closest_objects, min_t
