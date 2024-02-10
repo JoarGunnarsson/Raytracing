@@ -16,6 +16,7 @@ class Object:
     def get_position(self):
         return self.position
 
+
 class Camera(Object):
     def __init__(self, x=0, y=0, z=0, viewing_direction=None):
         if viewing_direction is None:
@@ -79,11 +80,10 @@ class Sphere(Object):
                                            light_vector_matrix)
 
     def intersection(self, starting_positions, direction_vectors):
-        # TODO: Input vectors can be inf and nan, if we are checkign a reflection... Perhaps this does not need to be
+        # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
         # computed etc.
         dot_product = np.sum(direction_vectors * starting_positions, axis=2)
         B = 2 * (dot_product - np.dot(direction_vectors, self.position))
-        # TODO: Issue with starting_positions.
         difference_in_positions = self.position - starting_positions
         c = np.sum(difference_in_positions * difference_in_positions, axis=2) - self.radius ** 2
         C = np.full(B.shape, c)
