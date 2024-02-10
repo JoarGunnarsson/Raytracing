@@ -13,6 +13,8 @@ class Object:
         self.z = z
         self.position = np.array([x, y, z])
 
+    def get_position(self):
+        return self.position
 
 class Camera(Object):
     def __init__(self, x=0, y=0, z=0, viewing_direction=None):
@@ -88,9 +90,9 @@ class Sphere(Object):
 
 
 class LightSource(Object):
-    def __init__(self, x=4, y=0, z=1000):
+    def __init__(self, x=4, y=0, z=1000, intensity=15):
         super().__init__(x, y, z)
-        self.intensity = 1
+        self.intensity = intensity
 
     def compute_light_intensity(self, *args, **kwargs):
         """Virtual method to be implemented in child classes."""
@@ -98,9 +100,8 @@ class LightSource(Object):
 
 
 class PointSource(LightSource):
-    def __init__(self, x=4, y=0, z=20):
-        super().__init__(x, y, z)
-        self.intensity = 15
+    def __init__(self, x=4, y=0, z=20, intensity=15):
+        super().__init__(x, y, z, intensity=intensity)
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         width, height, _ = intersection_points.shape
@@ -116,17 +117,13 @@ class PointSource(LightSource):
         non_obscured_indices = obscuring_objects == None
         distances = np.sum((intersection_points - self.position) * (intersection_points - self.position), axis=2)
         intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]
-        #print(obscuring_objects)
-        #print()
-        #print(np.array([[round(value, 3) for value in x] for x in intensities]))
         return intensities, [light_vectors]
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4, y=0, z=20):
-        super().__init__(x, y, z)
+    def __init__(self, x=4, y=0, z=20, intensity=15):
+        super().__init__(x, y, z, intensity=intensity)
         self.radius = 3
-        self.intensity = 15
         self.n_points = 30
         self.normal_vector = np.array([0, 0, -1])
 
@@ -194,8 +191,6 @@ def find_closes_intersected_object(starting_positions, direction_vectors, object
 
     for obj in object_list:
         t = obj.intersection(starting_positions, direction_vectors)
-        print(t)
-        print()
         none_indices = t == None
         t[none_indices] = -1
         positive_indices = t > 0

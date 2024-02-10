@@ -14,12 +14,12 @@ class Material:
         self.shininess = shininess
 
     def compute_color(self, normal_vector, direction_vector, light_vector):
-        I_diffuse = self.diffusion_coefficient * np.dot(normal_vector, light_vector)
+        I_diffuse = self.diffusion_coefficient * np.dot(normal_vector, light_vector) * self.diffuse_color
 
         R = - 2 * np.dot(normal_vector, light_vector) * normal_vector + light_vector
-        I_specular = self.specular_coefficient * np.dot(R, direction_vector)**self.shininess
+        I_specular = self.specular_coefficient * np.dot(R, direction_vector)**self.shininess * self.specular_color
 
-        new_color = [clamp(I_diffuse * diffuse_value + I_specular * specular_value, 0, 1) for diffuse_value, specular_value in zip(self.diffuse_color, self.specular_color)]
+        new_color = np.clip(I_diffuse + I_specular, 0, 1)
         return new_color
 
 

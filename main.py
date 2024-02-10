@@ -26,30 +26,22 @@ def get_intersection_color(start_position, direction_vectors, scene_objects, lig
     # TODO: Invalid T-elements: None. Only look at good indices.
     intersection_points = start_position + direction_vectors * T[:, :, None]
 
-    # intersection_points += seen_object.small_normal_offset(intersection_point)
-    # TODO: Enable the above line again, somehow.
+    for i, x in enumerate(seen_objects):
+        for j, obj in enumerate(x):
+            intersection_points[i][j] += obj.small_normal_offset(intersection_points[i][j])
 
     combined_colors = np.full(direction_vectors.shape, BLACK)
     for light in light_sources:
         light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
-        for i, x in enumerate(seen_objects):
-            for j, y in enumerate(x):
-                if y is None:
-                    continue
-
-                clr = (y.compute_surface_color(intersection_points[i][j], direction_vectors[i][j],
-                                              light_vectors_matrix[0][i][j]))
-                colors[i][j] = np.array(clr) * light_intensities[i][j]
-
-        return colors
         zero_light_intensity_indices = light_intensities == 0
-        non_zero_light_intensity_indices = light_intensities != 0
         if depth == 0:
-            combined_colors[zero_light_intensity_indices] += BLACK  # TODO: This might not be necessary, perhaps remove it.
-            ###
-
-            combined_colors[non_zero_light_intensity_indices] += surface_color
+            for k, light_vec in enumerate(light_vectors_matrix):
+                for i, x in enumerate(seen_objects):
+                    for j, obj in enumerate(x):
+                        combined_colors[i][j] += light_intensities[i][j] * obj.compute_surface_color(intersection_points[i][j], direction_vectors[i][j], light_vectors_matrix[k][i][j])
             continue
+
+        non_zero_light_intensity_indices = light_intensities != 0
 
         if light_intensity == 0:
             normal_vector = seen_object.normal_vector(intersection_point)
@@ -71,7 +63,7 @@ def get_intersection_color(start_position, direction_vectors, scene_objects, lig
 
         combined_color += surface_color * (1 - alpha) + alpha * np.array(color)
         continue
-    return [materials.clamp(value, 0, 1) for value in combined_color]
+    return np.clip(combined_colors, 0, 1)
 
 
 def raytrace():
@@ -92,7 +84,7 @@ def main():
     image = raytrace()
     plt.imsave(image_directory + "test.png", image)
     print(f"The program took {time.time() - start} seconds to run.")
-
+    # Vectorized function is about 5 times faster... Not very good :/ But not completely vectorized...
 
 if __name__ == '__main__':
     main()
