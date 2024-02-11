@@ -14,17 +14,14 @@ class Material:
         self.reflection_coefficient = reflection_coefficient
         self.shininess = shininess
 
-    def compute_color(self, normal_vectors, direction_vectors, light_vectors):
-        # TODO: Issue here, with getting HEIGHTxWIDTHx3 list of None here, if failiure
-        normal_dot_light_vectors = np.sum(normal_vectors * light_vectors, axis=-1)
-        R = - 2 * normal_vectors * normal_dot_light_vectors[:, :, None] + light_vectors
-        reflection_dot_direction_vectors = np.sum(R * direction_vectors, axis=-1)
-        I_diffuse = self.diffusion_coefficient * multiply_matrix_by_vector_elementwise(normal_dot_light_vectors,
-                                                                                       self.diffuse_color)
+    def compute_color(self, normal_vector, direction_vector, light_vector):
+        I_diffuse = self.diffusion_coefficient * np.dot(normal_vector, light_vector)
 
-        I_specular = self.specular_coefficient * multiply_matrix_by_vector_elementwise(reflection_dot_direction_vectors ** self.shininess, self.specular_color)
-        new_color = np.clip(I_diffuse + I_specular, 0, 1)
-        return new_color
+        R = - 2 * np.dot(normal_vector, light_vector) * normal_vector + light_vector
+        I_specular = self.specular_coefficient * np.dot(R, direction_vector)**self.shininess
+
+        new_color = [clamp(I_diffuse * diffuse_value + I_specular * specular_value, 0, 1) for diffuse_value, specular_value in zip(self.diffuse_color, self.specular_color)]
+        return np.array(new_color)
 
     def get_specular_color(self):
         return self.specular_coefficient * self.specular_color
@@ -38,3 +35,7 @@ def multiply_matrix_by_vector_elementwise(A, v):
     A = A.reshape(-1, 1, 1)
     A = A * v
     return A.reshape(A_height, A_width, 3)
+
+
+def clamp(x, low, high):
+    return min(max(x, low), high)

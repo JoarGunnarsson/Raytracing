@@ -75,9 +75,9 @@ class Sphere(Object):
     def small_normal_offset(self, position):
         return self.normal_vector(position) * EPSILON
 
-    def compute_surface_color(self, intersection_points, direction_vectors, light_vector_matrix):
-        return self.material.compute_color(self.normal_vector(intersection_points), direction_vectors,
-                                           light_vector_matrix)
+    def compute_surface_color(self, intersection_point, direction_vector, light_direction_vector):
+        return self.material.compute_color(self.normal_vector(intersection_point), direction_vector,
+                                           light_direction_vector)
 
     def intersection(self, starting_positions, direction_vectors):
         # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
@@ -142,8 +142,8 @@ class DiskSource(LightSource):
         light_vectors_matrix = []
         for i in range(self.n_points):
             theta = np.random.random((HEIGHT, WIDTH)) * 2 * math.pi
-            d = np.random.random((HEIGHT, WIDTH)) * self.radius
-            random_point_local = d[:,:,None] ** 0.5 * (np.cos(theta)[:,:,None] * x_hat + np.sin(theta)[:,:,None] * y_hat)
+            d = np.random.random((HEIGHT, WIDTH))**0.5 * self.radius
+            random_point_local = d[:,:,None] * (np.cos(theta)[:,:,None] * x_hat + np.sin(theta)[:,:,None] * y_hat)
             random_light_point = self.position + random_point_local
             light_vectors = random_light_point - intersection_points
             norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
