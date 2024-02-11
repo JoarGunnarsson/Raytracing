@@ -6,8 +6,8 @@ This is a Python project for ray tracing, a technique used in computer graphics 
 ### Example scene
 Below is an example scene, using two different kinds light sources.
 
-| ![Image 1](Images/point_reflections.png) Point light source | ![Image 2](Images/disk_reflections.png) Disk light source |
-|:-----------------------------------------------------------:|:---------------------------------------------------------:|
+| ![Point light](Images/point_reflections.png) Point light source | ![Disk light](Images/disk_reflections.png) Disk light source |
+|:---------------------------------------------------------------:|:------------------------------------------------------------:|
 
 
 ## Overview
