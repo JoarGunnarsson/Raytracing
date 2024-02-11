@@ -25,16 +25,18 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
     valid_indices = seen_objects != None
 
     seen_objects = seen_objects[valid_indices]
+    if len(seen_objects) == 0:
+        return combined_colors
+
     starting_positions = starting_positions[valid_indices]
     direction_vectors = direction_vectors[valid_indices]
     T = T[valid_indices]
 
     intersection_points = starting_positions + direction_vectors * T
-    get_position_vectorized = np.vectorize(get_position, signature="()->(3)")
-
-    if len(seen_objects) == 0:
-        return combined_colors
-    positions = get_position_vectorized(seen_objects)
+    positions = np.zeros(starting_positions.shape)
+    for obj in scene_objects:
+        relevant_indices = seen_objects == obj
+        positions[relevant_indices] = obj.position
 
     normals = intersection_points - positions
     norms = np.linalg.norm(normals, axis=-1, keepdims=True)
@@ -43,14 +45,17 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
     EPSILON = 0.001
     intersection_points += normal_vectors * EPSILON
 
-    normal_dot_direction_vectors = np.sum(normal_vectors * direction_vectors, axis=-1)
-    reflection_vectors = - 2 * normal_vectors * normal_dot_direction_vectors[:, None] + direction_vectors
+    normal_dot_direction_vectors = np.sum(normal_vectors * direction_vectors, axis=-1)[:, None]
+    reflection_vectors = - 2 * normal_vectors * normal_dot_direction_vectors + direction_vectors
 
     if depth != 0:
         reflection_colors = get_intersection_color(intersection_points, reflection_vectors, scene_objects, light_sources,
                                                    depth - 1)
-        get_alpha_vectorized = np.vectorize(get_alpha, otypes=[float])
-        alpha = get_alpha_vectorized(seen_objects)[:, None]
+
+        alpha = np.zeros(normal_dot_direction_vectors.shape)
+        for obj in scene_objects:
+            relevant_indices = seen_objects == obj
+            alpha[relevant_indices] = get_alpha(obj)
 
     for light in light_sources:
         light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
@@ -70,22 +75,18 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
 def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix):
     surface_color = np.full(direction_vectors.shape, BLACK.copy())
-    for obj in scene_objects:
-        relevant_indices = seen_objects == obj
-        diffusive_color = get_diffusive_color(obj)
-        specular_color = get_specular_color(obj)
-        shininess = get_shininess(obj)
+    for k, light_vec in enumerate(light_vectors_matrix):
+        normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
+        reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, None] + light_vec
+        reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors, axis=-1)
+        for obj in scene_objects:
+            relevant_indices = seen_objects == obj
+            diffusive_color = get_diffusive_color(obj)
+            specular_color = get_specular_color(obj)
+            shininess = get_shininess(obj)
 
-        for k, light_vec in enumerate(light_vectors_matrix):
-
-            normal_dot_light_vectors = np.sum(normal_vectors[relevant_indices] * light_vec[relevant_indices], axis=-1)
-            reflection_vectors = - 2 * normal_vectors[relevant_indices] * normal_dot_light_vectors[:, None] + light_vec[relevant_indices]
-            reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors[relevant_indices], axis=-1)
-
-            I_diffuse = diffusive_color * normal_dot_light_vectors[:, None]
-
-            I_specular = specular_color * reflection_dot_direction_vectors[:, None] ** shininess
-
+            I_diffuse = diffusive_color * normal_dot_light_vectors[relevant_indices][:, None]
+            I_specular = specular_color * reflection_dot_direction_vectors[relevant_indices][:, None] ** shininess
             surface_color[relevant_indices] += (I_diffuse + I_specular) * light_intensities[relevant_indices][:, None] / len(light_vectors_matrix)
 
     return np.clip(surface_color, 0, 1)
@@ -128,7 +129,7 @@ def raytrace():
                      objects.Sphere(z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.PointSource(x=4, y=0, z=5)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))

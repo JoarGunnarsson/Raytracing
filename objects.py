@@ -132,7 +132,8 @@ class DiskSource(LightSource):
         self.normal_vector = np.array([0.0, 0.0, -1.0])
 
     def compute_light_intensity(self, intersection_points, scene_objects):
-        total_intensities = np.zeros((HEIGHT, WIDTH))
+        size, _ = intersection_points.shape
+        total_intensities = np.zeros(size)
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
             perpendicular_vector = np.array([0.0, 1.0, 0.0])
@@ -144,9 +145,9 @@ class DiskSource(LightSource):
 
         light_vectors_matrix = []
         for i in range(self.n_points):
-            theta = np.random.random((HEIGHT, WIDTH)) * 2 * math.pi
-            d = np.random.random((HEIGHT, WIDTH))**0.5 * self.radius
-            random_point_local = d[:,:,None] * (np.cos(theta)[:,:,None] * x_hat + np.sin(theta)[:,:,None] * y_hat)
+            theta = np.random.random(size) * 2 * math.pi
+            d = np.random.random(size)**0.5 * self.radius
+            random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
             random_light_point = self.position + random_point_local
             light_vectors = random_light_point - intersection_points
             norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
@@ -154,7 +155,7 @@ class DiskSource(LightSource):
             obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
             non_obscured_indices = obscuring_objects == None
-            distances = norms.reshape((HEIGHT, WIDTH))
+            distances = norms.reshape(size)
             total_intensities[non_obscured_indices] += self.intensity / self.n_points / distances[non_obscured_indices]**2
 
             light_vectors_matrix.append(light_vectors)
