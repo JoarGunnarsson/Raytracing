@@ -67,18 +67,6 @@ class Sphere(Object):
         self.radius = radius
         self.material = material
 
-    def normal_vector(self, intersection_points):
-        normal_vector = intersection_points - self.position
-        norms = np.linalg.norm(normal_vector)
-        return normal_vector / norms
-
-    def small_normal_offset(self, position):
-        return self.normal_vector(position) * EPSILON
-
-    def compute_surface_color(self, intersection_point, direction_vector, light_direction_vector):
-        return self.material.compute_color(self.normal_vector(intersection_point), direction_vector,
-                                           light_direction_vector)
-
     def intersection(self, starting_positions, direction_vectors):
         # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
         # computed etc.
@@ -164,7 +152,7 @@ class DiskSource(LightSource):
 
 def solve_quadratic(B, C):
     """Solves a special case quadratic equation with a = 1."""
-    solutions = np.full(B.shape, None, dtype=object)
+    solutions = np.zeros(B.shape)
 
     discriminants = B ** 2 - 4 * C
     imaginary_solutions_indices = discriminants <= 0
