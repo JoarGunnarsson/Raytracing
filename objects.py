@@ -110,7 +110,7 @@ class PointSource(LightSource):
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
-        obscuring_objects, _ = find_closes_intersected_object(intersection_points, light_vectors, scene_objects)
+        obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
         obscured_indices = obscuring_objects != None
         intensities[obscured_indices] = 0
@@ -126,36 +126,35 @@ class DiskSource(LightSource):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = 3
         self.n_points = 30
-        self.normal_vector = np.array([0, 0, -1])
+        self.normal_vector = np.array([0.0, 0.0, -1.0])
 
-    def compute_light_intensity(self, intersection_point, scene_objects):
-        total_intensity = 0
+    def compute_light_intensity(self, intersection_points, scene_objects):
+        total_intensities = np.zeros((HEIGHT, WIDTH))
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
-            perpendicular_vector = np.array([0, 1, 0])
+            perpendicular_vector = np.array([0.0, 1.0, 0.0])
         else:
-            perpendicular_vector = np.array([1, 0, 0])
+            perpendicular_vector = np.array([1.0, 0.0, 0.0])
 
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
 
         y_hat = np.cross(self.normal_vector, x_hat)
-        light_vectors = []
+        light_vectors_matrix = []
         for i in range(self.n_points):
             theta = random.random() * 2 * math.pi
             d = random.random() * self.radius
             random_light_point = self.position + d ** 0.5 * (math.cos(theta) * x_hat + math.sin(theta) * y_hat)
-            light_vector = random_light_point - intersection_point
-            light_vector = light_vector / np.linalg.norm(light_vector)
-            obscuring_object, _ = find_closes_intersected_object(intersection_point, light_vector, scene_objects)
-            if obscuring_object is not None:
-                intensity = 0
-            else:
-                intensity = self.intensity / self.n_points
-            distance = np.linalg.norm(intersection_point - self.position)
-            total_intensity += intensity / distance**2
-            light_vectors.append(light_vector)
+            light_vectors = random_light_point - intersection_points
+            norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
+            light_vectors = light_vectors / norms
+            obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
-        return total_intensity, light_vectors
+            non_obscured_indices = obscuring_objects == None
+            distances = norms.reshape((HEIGHT, WIDTH))
+            total_intensities[non_obscured_indices] += self.intensity / self.n_points / distances[non_obscured_indices]**2
+
+            light_vectors_matrix.append(light_vectors)
+        return total_intensities, light_vectors_matrix
 
 
 def solve_quadratic(B, C):
@@ -185,7 +184,7 @@ def solve_quadratic(B, C):
     return solutions
 
 
-def find_closes_intersected_object(starting_positions, direction_vectors, object_list):
+def find_closest_intersected_object(starting_positions, direction_vectors, object_list):
     height, width, _ = direction_vectors.shape
     min_t = np.zeros((height, width)) + np.inf
     closest_objects = np.full((height, width), None, dtype=Object)

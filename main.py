@@ -18,7 +18,7 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
 
 
 def get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1):
-    seen_objects, T = objects.find_closes_intersected_object(starting_positions, direction_vectors, scene_objects)
+    seen_objects, T = objects.find_closest_intersected_object(starting_positions, direction_vectors, scene_objects)
     invalid_indices = seen_objects == None
     valid_indices = seen_objects != None
     intersection_points = starting_positions + direction_vectors * T[:, :, None]
@@ -80,7 +80,7 @@ def compute_surface_color(seen_objects, direction_vectors, normal_vectors, light
         I_diffuse = diffusive_colors * normal_dot_light_vectors[:, :, None]
 
         I_specular = specular_colors * reflection_dot_direction_vectors[:, :, None] ** shininess[:, :, None]
-        surface_color += (I_diffuse + I_specular) * light_intensities[:, :, None]
+        surface_color += (I_diffuse + I_specular) * light_intensities[:, :, None] / len(light_vectors_matrix)
     return surface_color
 
 
@@ -121,7 +121,7 @@ def raytrace():
                      objects.Sphere(z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.PointSource(x=4, y=0, z=5)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))
