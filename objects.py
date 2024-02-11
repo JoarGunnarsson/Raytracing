@@ -143,7 +143,8 @@ class DiskSource(LightSource):
         for i in range(self.n_points):
             theta = np.random.random((HEIGHT, WIDTH)) * 2 * math.pi
             d = np.random.random((HEIGHT, WIDTH)) * self.radius
-            random_light_point = self.position + d[:,:,None] ** 0.5 * (np.cos(theta)[:,:,None] * x_hat + np.sin(theta)[:,:,None] * y_hat)
+            random_point_local = d[:,:,None] ** 0.5 * (np.cos(theta)[:,:,None] * x_hat + np.sin(theta)[:,:,None] * y_hat)
+            random_light_point = self.position + random_point_local
             light_vectors = random_light_point - intersection_points
             norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
             light_vectors = light_vectors / norms

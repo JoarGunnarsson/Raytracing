@@ -12,7 +12,7 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
     norms = np.linalg.norm(direction_vectors, axis=-1, keepdims=True)
     direction_vectors = direction_vectors / norms
     starting_positions = np.full(direction_vectors.shape, camera.position)
-    color = get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1)
+    color = get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=reflection_depth)
     color = np.clip(color, 0, 1)
     return color
 
@@ -81,7 +81,7 @@ def compute_surface_color(seen_objects, direction_vectors, normal_vectors, light
 
         I_specular = specular_colors * reflection_dot_direction_vectors[:, :, None] ** shininess[:, :, None]
         surface_color += (I_diffuse + I_specular) * light_intensities[:, :, None] / len(light_vectors_matrix)
-    return surface_color
+    return np.clip(surface_color, 0, 1)
 
 
 def get_position(obj):
