@@ -47,10 +47,10 @@ class Screen(Object):
 
     def index_to_position(self, X, Y):
         X = X * self.width / self.pixels_x - self.width / 2
-        X = multiply_matrix_by_vector_elementwise(X, self.x_vector)
+        X = X * self.x_vector
 
         Y = (self.pixels_y - Y) * self.height / self.pixels_y - self.height / 2
-        Y = multiply_matrix_by_vector_elementwise(Y, self.y_vector)
+        Y = Y * self.y_vector
         return X + Y + self.position
 
 
@@ -82,11 +82,10 @@ class Sphere(Object):
     def intersection(self, starting_positions, direction_vectors):
         # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
         # computed etc.
-        dot_product = np.sum(direction_vectors * starting_positions, axis=2)
+        dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
         B = 2 * (dot_product - np.dot(direction_vectors, self.position))
         difference_in_positions = self.position - starting_positions
-        c = np.sum(difference_in_positions * difference_in_positions, axis=2) - self.radius ** 2
-        C = np.full(B.shape, c)
+        C = np.sum(difference_in_positions * difference_in_positions, axis=-1) - self.radius ** 2
         solutions = solve_quadratic(B, C)
         return solutions
 
@@ -106,7 +105,9 @@ class PointSource(LightSource):
         super().__init__(x, y, z, intensity=intensity)
 
     def compute_light_intensity(self, intersection_points, scene_objects):
-        intensities = np.zeros((HEIGHT, WIDTH))
+        size, _ = intersection_points.shape
+        intensities = np.zeros(size)
+
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
@@ -116,8 +117,10 @@ class PointSource(LightSource):
         intensities[obscured_indices] = 0
 
         non_obscured_indices = obscuring_objects == None
-        distances = norms.reshape((HEIGHT, WIDTH))
+        distances = norms.reshape(size)
+
         intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]**2
+        ###
         return intensities, [light_vectors]
 
 
@@ -186,10 +189,9 @@ def solve_quadratic(B, C):
 
 
 def find_closest_intersected_object(starting_positions, direction_vectors, object_list):
-    height, width, _ = direction_vectors.shape
-    min_t = np.zeros((height, width)) + np.inf
-    closest_objects = np.full((height, width), None, dtype=Object)
-
+    size, _ = direction_vectors.shape
+    min_t = np.full(size, np.inf)
+    closest_objects = np.full(size, None, dtype=Object)
     for obj in object_list:
         t = obj.intersection(starting_positions, direction_vectors)
         none_indices = t == None
@@ -199,4 +201,4 @@ def find_closest_intersected_object(starting_positions, direction_vectors, objec
         new_closest_object_found_indices = min_t == t
         closest_objects[new_closest_object_found_indices] = obj
 
-    return closest_objects, min_t
+    return closest_objects, min_t[:, None]
