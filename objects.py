@@ -11,7 +11,7 @@ class Object:
         self.x = x
         self.y = y
         self.z = z
-        self.position = np.array([x, y, z])
+        self.position = np.array([x, y, z], dtype=float)
 
 
 class Camera(Object):
@@ -30,8 +30,8 @@ class Camera(Object):
 
 
 class Screen(Object):
-    def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1, 0, 0]),
-                 y_vector=np.array([0, 0, 1]), width=1, height=1):
+    def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1.0, 0.0, 0.0]),
+                 y_vector=np.array([0.0, 0.0, 1.0]), width=1, height=1):
         super().__init__(x, y, z)
         self.width = width
         self.height = height
@@ -114,15 +114,15 @@ class DiskSource(LightSource):
         self.radius = 3
         self.intensity = 15
         self.n_points = 30
-        self.normal_vector = np.array([0, 0, -1])
+        self.normal_vector = np.array([0.0, 0.0, -1.0])
 
     def compute_light_intensity(self, intersection_point, scene_objects):
         total_intensity = 0
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
-            perpendicular_vector = np.array([0, 1, 0])
+            perpendicular_vector = np.array([0.0, 1.0, 0.0])
         else:
-            perpendicular_vector = np.array([1, 0, 0])
+            perpendicular_vector = np.array([1.0, 0.0, 0.0])
 
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
 
