@@ -54,7 +54,7 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
     for light in light_sources:
         light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
-        surface_color = compute_surface_color(seen_objects, direction_vectors, normal_vectors, light_intensities,
+        surface_color = compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities,
                                               light_vectors_matrix)
 
         if depth == 0:
@@ -68,29 +68,25 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
     return np.clip(combined_colors, 0, 1)
 
 
-def compute_surface_color(seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix):
+def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix):
     surface_color = np.full(direction_vectors.shape, BLACK.copy())
-    start = time.time()
-    get_diffusive_color_vectorized = np.vectorize(get_diffusive_color, signature="() -> (3)")
+    for obj in scene_objects:
+        relevant_indices = seen_objects == obj
+        diffusive_color = get_diffusive_color(obj)
+        specular_color = get_specular_color(obj)
+        shininess = get_shininess(obj)
 
-    diffusive_colors = get_diffusive_color_vectorized(seen_objects)
+        for k, light_vec in enumerate(light_vectors_matrix):
 
-    get_specular_color_vectorized = np.vectorize(get_specular_color, signature="() -> (3)")
-    specular_colors = get_specular_color_vectorized(seen_objects)
+            normal_dot_light_vectors = np.sum(normal_vectors[relevant_indices] * light_vec[relevant_indices], axis=-1)
+            reflection_vectors = - 2 * normal_vectors[relevant_indices] * normal_dot_light_vectors[:, None] + light_vec[relevant_indices]
+            reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors[relevant_indices], axis=-1)
 
-    get_shininess_vectorized = np.vectorize(get_shininess)
-    shininess = get_shininess_vectorized(seen_objects)
+            I_diffuse = diffusive_color * normal_dot_light_vectors[:, None]
 
-    for k, light_vec in enumerate(light_vectors_matrix):
-        normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
-        reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, None] + light_vec
-        reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors, axis=-1)
+            I_specular = specular_color * reflection_dot_direction_vectors[:, None] ** shininess
 
-        I_diffuse = diffusive_colors * normal_dot_light_vectors[:, None]
-
-        I_specular = specular_colors * reflection_dot_direction_vectors[:, None] ** shininess[:, None]
-
-        surface_color = surface_color + (I_diffuse + I_specular) * light_intensities[:, None] / len(light_vectors_matrix)
+            surface_color[relevant_indices] += (I_diffuse + I_specular) * light_intensities[relevant_indices][:, None] / len(light_vectors_matrix)
 
     return np.clip(surface_color, 0, 1)
 
