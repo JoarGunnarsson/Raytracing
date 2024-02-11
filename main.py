@@ -11,18 +11,18 @@ def get_pixel_color(i, j, screen, camera, scene_objects, light_sources):
     direction_vector = pixel_vector - camera.position
     direction_vector = direction_vector / np.linalg.norm(direction_vector)
     color = get_intersection_color(camera.position, direction_vector, scene_objects, light_sources, depth=0)
-    color = [materials.clamp(value, 0, 1) for value in color]
+    color = np.clip(color, 0, 1)
     return color
 
 
 def get_intersection_color(start_position, direction_vector, scene_objects, light_sources, depth=1):
     seen_object, t = objects.find_closes_intersected_object(start_position, direction_vector, scene_objects)
     if seen_object is None:
-        return SKY_BLUE
+        return SKY_BLUE.copy()
 
     intersection_point = start_position + direction_vector * t
     intersection_point += seen_object.small_normal_offset(intersection_point)
-    combined_color = np.array(BLACK)
+    combined_color = BLACK.copy()
     for light in light_sources:
         light_intensity, light_vectors = light.compute_light_intensity(intersection_point, scene_objects)
         if light_intensity == 0:
@@ -33,13 +33,12 @@ def get_intersection_color(start_position, direction_vector, scene_objects, ligh
             alpha = seen_object.material.reflection_coefficient
             reflection_vector = - 2 * np.dot(normal_vector, direction_vector) * normal_vector + direction_vector
             color = get_intersection_color(intersection_point, reflection_vector, scene_objects, light_sources, depth-1)
-
-            combined_color += np.array(BLACK) * (1 - alpha) + alpha * np.array(color)
+            combined_color += alpha * color
             continue
-        surface_color = np.array(BLACK)
+        surface_color = BLACK.copy()
         for light_vector in light_vectors:
-            surface_color += np.array(seen_object.compute_surface_color(intersection_point, direction_vector, light_vector)) * light_intensity / len(light_vectors)
-
+            surface_color += seen_object.compute_surface_color(intersection_point, direction_vector, light_vector) * light_intensity / len(light_vectors)
+        surface_color = np.clip(surface_color, 0, 1)
         if depth == 0:
             combined_color += surface_color
             continue
@@ -49,9 +48,9 @@ def get_intersection_color(start_position, direction_vector, scene_objects, ligh
         alpha = seen_object.material.reflection_coefficient
         color = get_intersection_color(intersection_point, reflection_vector, scene_objects, light_sources, depth - 1)
 
-        combined_color += surface_color * (1 - alpha) + alpha * np.array(color)
+        combined_color += surface_color * (1 - alpha) + alpha * color
         continue
-    return [materials.clamp(value, 0, 1) for value in combined_color]
+    return np.clip(combined_color, 0, 1)
 
 
 def raytrace():
