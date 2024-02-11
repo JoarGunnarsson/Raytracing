@@ -3,7 +3,6 @@ from constants import *
 import matplotlib.pyplot as plt
 import objects
 import materials
-import time
 
 
 def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
@@ -21,8 +20,8 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
 def get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1):
     combined_colors = np.full(starting_positions.shape, BLACK.copy())
     seen_objects, T = objects.find_closest_intersected_object(starting_positions, direction_vectors, scene_objects)
-    invalid_indices = seen_objects == None
-    valid_indices = seen_objects != None
+    invalid_indices = seen_objects == -1
+    valid_indices = seen_objects != -1
 
     seen_objects = seen_objects[valid_indices]
     if len(seen_objects) == 0:
@@ -35,8 +34,8 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
     intersection_points = starting_positions + direction_vectors * T
     positions = np.zeros(starting_positions.shape)
-    for obj in scene_objects:
-        relevant_indices = seen_objects == obj
+    for i, obj in enumerate(scene_objects):
+        relevant_indices = seen_objects == i
         positions[relevant_indices] = obj.position
 
     normals = intersection_points - positions
@@ -54,8 +53,8 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
                                                    depth - 1)
 
         alpha = np.zeros(normal_dot_direction_vectors.shape)
-        for obj in scene_objects:
-            relevant_indices = seen_objects == obj
+        for i, obj in enumerate(scene_objects):
+            relevant_indices = seen_objects == i
             alpha[relevant_indices] = get_alpha(obj)
 
     for light in light_sources:
@@ -80,8 +79,8 @@ def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal
         normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
         reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, None] + light_vec
         reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors, axis=-1)
-        for obj in scene_objects:
-            relevant_indices = seen_objects == obj
+        for i, obj in enumerate(scene_objects):
+            relevant_indices = seen_objects == i
             diffusive_color = get_diffusive_color(obj)
             specular_color = get_specular_color(obj)
             shininess = get_shininess(obj)
@@ -143,11 +142,9 @@ def raytrace():
 
 
 def main():
-    start = time.time()
     image = raytrace()
     plt.imsave(image_directory + "test.png", image)
-    print(f"The program took {time.time() - start} seconds to run.")
-    # 6.738481760025024
+
 
 
 if __name__ == '__main__':

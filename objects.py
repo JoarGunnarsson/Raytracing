@@ -1,5 +1,4 @@
 import numpy as np
-import random
 from constants import *
 import materials
 import math
@@ -101,10 +100,10 @@ class PointSource(LightSource):
         light_vectors = light_vectors / norms
         obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
-        obscured_indices = obscuring_objects != None
+        obscured_indices = obscuring_objects != -1
         intensities[obscured_indices] = 0
 
-        non_obscured_indices = obscuring_objects == None
+        non_obscured_indices = obscuring_objects == -1
         distances = norms.reshape(size)
 
         intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]**2
@@ -142,7 +141,7 @@ class DiskSource(LightSource):
             light_vectors = light_vectors / norms
             obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
-            non_obscured_indices = obscuring_objects == None
+            non_obscured_indices = obscuring_objects == -1
             distances = norms.reshape(size)
             total_intensities[non_obscured_indices] += self.intensity / self.n_points / distances[non_obscured_indices]**2
 
@@ -152,42 +151,39 @@ class DiskSource(LightSource):
 
 def solve_quadratic(B, C):
     """Solves a special case quadratic equation with a = 1."""
-    solutions = np.zeros(B.shape)
+    solutions = -np.ones(B.shape)
 
     discriminants = B ** 2 - 4 * C
-    imaginary_solutions_indices = discriminants <= 0
+    real_solution_indices = 0 <= discriminants
 
-    discriminants[imaginary_solutions_indices] = 0
-
-    root_discriminant = discriminants ** 0.5
+    root_discriminant = discriminants[real_solution_indices] ** 0.5
+    B = B[real_solution_indices]
     x1 = -B / 2 + root_discriminant / 2
     x2 = -B / 2 - root_discriminant / 2
 
     minimum_solutions = np.minimum(x1, x2)
     maximum_solutions = np.maximum(x1, x2)
-    min_ok_indices = minimum_solutions > 0
-    solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
 
-    max_ok_indices = minimum_solutions.any() <= 0 < maximum_solutions.any()
-    solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
+    valid_solutions = solutions[real_solution_indices]
+    max_ok_indices = 0 < maximum_solutions
+    valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
-    negative_solutions_indices = minimum_solutions.any() <= 0 and maximum_solutions.any() <= 0
-    solutions[negative_solutions_indices] = None
-    solutions[imaginary_solutions_indices] = None
+    min_ok_indices = 0 < minimum_solutions
+    valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+
+    solutions[real_solution_indices] = valid_solutions
     return solutions
 
 
 def find_closest_intersected_object(starting_positions, direction_vectors, object_list):
     size, _ = direction_vectors.shape
     min_t = np.full(size, np.inf)
-    closest_objects = np.full(size, None, dtype=Object)
-    for obj in object_list:
+    closest_objects = np.full(size, -1)
+    for i, obj in enumerate(object_list):
         t = obj.intersection(starting_positions, direction_vectors)
-        none_indices = t == None
-        t[none_indices] = -1
         positive_indices = t > 0
         min_t[positive_indices] = np.minimum(min_t[positive_indices], t[positive_indices])
         new_closest_object_found_indices = min_t == t
-        closest_objects[new_closest_object_found_indices] = obj
+        closest_objects[new_closest_object_found_indices] = i
 
     return closest_objects, min_t[:, None]
