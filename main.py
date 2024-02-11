@@ -19,14 +19,12 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
 
 def get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1):
     seen_objects, T = objects.find_closes_intersected_object(starting_positions, direction_vectors, scene_objects)
-    # TODO: Invalid T-elements: None. Only look at good indices.
     invalid_indices = seen_objects == None
     valid_indices = seen_objects != None
     intersection_points = starting_positions + direction_vectors * T[:, :, None]
     get_position_vectorized = np.vectorize(get_position, otypes=[object])
     positions = get_position_vectorized(seen_objects)
     positions = np.apply_along_axis(lambda x: np.stack(x, axis=0), axis=-1, arr=positions)
-    print(positions.dtype)
     normals = intersection_points - positions
     norms = np.linalg.norm(normals, axis=-1, keepdims=True)
     normal_vectors = normals / norms
@@ -43,8 +41,8 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
         reflection_colors = get_intersection_color(intersection_points, reflection_vectors, scene_objects, light_sources,
                                                    depth - 1)
 
-    get_alpha_vectorized = np.vectorize(get_alpha, otypes=[float])
-    alpha = get_alpha_vectorized(seen_objects)[:, :, None]
+        get_alpha_vectorized = np.vectorize(get_alpha, otypes=[float])
+        alpha = get_alpha_vectorized(seen_objects)[:, :, None]
     for light in light_sources:
         light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
         surface_color = compute_surface_color(seen_objects, direction_vectors, normal_vectors, light_intensities,
@@ -62,23 +60,26 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
 def compute_surface_color(seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix):
     surface_color = np.full((HEIGHT, WIDTH, 3), BLACK)
+
     get_diffusive_color_vectorized = np.vectorize(get_diffusive_color, otypes=[object])
+    diffusive_colors = get_diffusive_color_vectorized(seen_objects)
+    diffusive_colors = np.apply_along_axis(lambda x: np.stack(x, axis=0), axis=-1, arr=diffusive_colors)
+
     get_specular_color_vectorized = np.vectorize(get_specular_color, otypes=[object])
+    specular_colors = get_specular_color_vectorized(seen_objects)
+    specular_colors = np.apply_along_axis(lambda x: np.stack(x, axis=0), axis=-1, arr=specular_colors)
+
+    get_shininess_vectorized = np.vectorize(get_shininess, otypes=[float])
+    shininess = get_shininess_vectorized(seen_objects)
+
     for k, light_vec in enumerate(light_vectors_matrix):
         normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
         reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, :, None] + light_vec
         reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors, axis=-1)
 
-        diffusive_colors = get_diffusive_color_vectorized(seen_objects)
-        diffusive_colors = np.apply_along_axis(lambda x: np.stack(x, axis=0), axis=-1, arr=diffusive_colors)
-
-        specular_colors = get_specular_color_vectorized(seen_objects)
-        specular_colors = np.apply_along_axis(lambda x: np.stack(x, axis=0), axis=-1, arr=specular_colors)
-
         I_diffuse = diffusive_colors * normal_dot_light_vectors[:, :, None]
 
-        shininess = 30  # TODO: This needs to be taken from the material of the object!
-        I_specular = specular_colors * reflection_dot_direction_vectors[:, :, None] ** shininess
+        I_specular = specular_colors * reflection_dot_direction_vectors[:, :, None] ** shininess[:, :, None]
         surface_color += (I_diffuse + I_specular) * light_intensities[:, :, None]
     return surface_color
 
@@ -104,7 +105,13 @@ def get_specular_color(obj):
 def get_alpha(obj):
     if obj is None:
         return 0
-    return obj.material.get_alpha()
+    return obj.material.reflection_coefficient
+
+
+def get_shininess(obj):
+    if obj is None:
+        return 0
+    return obj.material.shininess
 
 
 def raytrace():

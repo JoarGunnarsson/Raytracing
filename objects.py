@@ -116,8 +116,8 @@ class PointSource(LightSource):
         intensities[obscured_indices] = 0
 
         non_obscured_indices = obscuring_objects == None
-        distances = np.sum((intersection_points - self.position) * (intersection_points - self.position), axis=2)
-        intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]
+        distances = norms.reshape((HEIGHT, WIDTH))
+        intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]**2
         return intensities, [light_vectors]
 
 
