@@ -196,7 +196,7 @@ def find_closest_intersected_object(starting_positions, direction_vectors, objec
         t[none_indices] = -1
         positive_indices = t > 0
         min_t[positive_indices] = np.minimum(min_t[positive_indices], t[positive_indices])
-
-        closest_objects[positive_indices] = obj
+        new_closest_object_found_indices = min_t == t
+        closest_objects[new_closest_object_found_indices] = obj
 
     return closest_objects, min_t
