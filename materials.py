@@ -32,6 +32,9 @@ class Material:
     def get_diffuse_color(self):
         return self.diffusion_coefficient * self.diffuse_color
 
+    def get_alpha(self):
+        return self.reflection_coefficient
+
 
 def multiply_matrix_by_vector_elementwise(A, v):
     A_height, A_width = A.shape
