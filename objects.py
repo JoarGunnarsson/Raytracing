@@ -130,8 +130,8 @@ class DiskSource(LightSource):
         light_vectors = []
         for i in range(self.n_points):
             theta = random.random() * 2 * math.pi
-            d = random.random() * self.radius
-            random_light_point = self.position + d ** 0.5 * (math.cos(theta) * x_hat + math.sin(theta) * y_hat)
+            d = random.random()**0.5 * self.radius
+            random_light_point = self.position + d * (math.cos(theta) * x_hat + math.sin(theta) * y_hat)
             light_vector = random_light_point - intersection_point
             light_vector = light_vector / np.linalg.norm(light_vector)
             obscuring_object, _ = find_closes_intersected_object(intersection_point, light_vector, scene_objects)

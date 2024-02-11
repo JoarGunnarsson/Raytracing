@@ -10,7 +10,7 @@ def get_pixel_color(i, j, screen, camera, scene_objects, light_sources):
     pixel_vector = screen.index_to_position(i, j)
     direction_vector = pixel_vector - camera.position
     direction_vector = direction_vector / np.linalg.norm(direction_vector)
-    color = get_intersection_color(camera.position, direction_vector, scene_objects, light_sources, depth=1)
+    color = get_intersection_color(camera.position, direction_vector, scene_objects, light_sources, depth=0)
     color = [materials.clamp(value, 0, 1) for value in color]
     return color
 
@@ -58,7 +58,7 @@ def raytrace():
     scene_objects = [objects.Sphere(z=-1000, radius=1000, material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3, reflection_coefficient=0.24)),
                      objects.Sphere(z=1, radius=1, material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.PointSource(x=4, y=0, z=5)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     for j, column in enumerate(screen.image):
