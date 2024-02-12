@@ -57,7 +57,7 @@ def raytrace():
     scene_objects = [objects.Sphere(z=-1000, radius=1000, material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3, reflection_coefficient=0.24)),
                      objects.Sphere(z=1, radius=1, material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
+    light_sources = [objects.DirectionalDiskSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     for j, column in enumerate(screen.image):

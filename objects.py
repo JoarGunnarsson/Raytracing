@@ -3,6 +3,7 @@ import random
 from constants import *
 import materials
 import math
+
 EPSILON = 0.0001
 
 
@@ -17,7 +18,7 @@ class Object:
 class Camera(Object):
     def __init__(self, x=0, y=0, z=0, viewing_direction=None):
         if viewing_direction is None:
-            viewing_direction = np.array([1/2**0.5, 0, -1/2**0.5])
+            viewing_direction = np.array([1 / 2 ** 0.5, 0, -1 / 2 ** 0.5])
         super().__init__(x, y, z)
         self.viewing_direction = viewing_direction
         self.y_vector = np.array([0.1, 0, 0.97])
@@ -31,7 +32,7 @@ class Camera(Object):
 
 class Screen(Object):
     def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1.0, 0.0, 0.0]),
-                 y_vector=np.array([0.0, 0.0, 1.0]), width=1, height=1):
+                 y_vector=np.array([0.0, 0.0, 1.0]), width=2, height=2):
         super().__init__(x, y, z)
         self.width = width
         self.height = height
@@ -105,7 +106,26 @@ class PointSource(LightSource):
         if obscuring_object is not None:
             return 0, [light_vector]
         distance = np.linalg.norm(intersection_point - self.position)
-        return self.intensity / distance**2, [light_vector]
+        return self.intensity / distance ** 2, [light_vector]
+
+
+class DirectionalPointSource(PointSource):
+    def __init__(self, x=0, y=0, z=20):
+        super().__init__(x, y, z)
+        self.normal_vector = np.array([0.0, 0.0, -1.0])
+        self.angle = 30
+
+    def compute_light_intensity(self, intersection_point, scene_objects):
+        light_vector = self.position - intersection_point
+        light_vector = light_vector / np.linalg.norm(light_vector)
+        obscuring_object, _ = find_closes_intersected_object(intersection_point, light_vector, scene_objects)
+        if obscuring_object is not None:
+            return 0, [light_vector]
+        distance = np.linalg.norm(intersection_point - self.position)
+        angle = np.dot(light_vector, self.normal_vector)
+        if np.arccos(abs(angle)) > self.angle * np.pi / 180:
+            return 0, [light_vector]
+        return self.intensity / distance ** 2, [light_vector]
 
 
 class DiskSource(LightSource):
@@ -130,7 +150,7 @@ class DiskSource(LightSource):
         light_vectors = []
         for i in range(self.n_points):
             theta = random.random() * 2 * math.pi
-            d = random.random()**0.5 * self.radius
+            d = random.random() ** 0.5 * self.radius
             random_light_point = self.position + d * (math.cos(theta) * x_hat + math.sin(theta) * y_hat)
             light_vector = random_light_point - intersection_point
             light_vector = light_vector / np.linalg.norm(light_vector)
@@ -140,7 +160,47 @@ class DiskSource(LightSource):
             else:
                 intensity = self.intensity / self.n_points
             distance = np.linalg.norm(intersection_point - self.position)
-            total_intensity += intensity / distance**2
+            total_intensity += intensity / distance ** 2
+            light_vectors.append(light_vector)
+
+        return total_intensity, light_vectors
+
+
+class DirectionalDiskSource(DiskSource):
+    def __init__(self, x=0, y=0, z=20):
+        super().__init__(x, y, z)
+        self.angle = 30
+
+    def compute_light_intensity(self, intersection_point, scene_objects):
+        total_intensity = 0
+
+        if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
+            perpendicular_vector = np.array([0.0, 1.0, 0.0])
+        else:
+            perpendicular_vector = np.array([1.0, 0.0, 0.0])
+
+        x_hat = np.cross(self.normal_vector, perpendicular_vector)
+
+        y_hat = np.cross(self.normal_vector, x_hat)
+        light_vectors = []
+        for i in range(self.n_points):
+            theta = random.random() * 2 * math.pi
+            d = random.random() ** 0.5 * self.radius
+            random_light_point = self.position + d * (math.cos(theta) * x_hat + math.sin(theta) * y_hat)
+            light_vector = random_light_point - intersection_point
+            light_vector = light_vector / np.linalg.norm(light_vector)
+            obscuring_object, _ = find_closes_intersected_object(intersection_point, light_vector, scene_objects)
+            if obscuring_object is not None:
+                intensity = 0
+            else:
+                intensity = self.intensity / self.n_points
+
+            angle = np.dot(light_vector, self.normal_vector)
+            if np.arccos(abs(angle)) > self.angle * np.pi / 180:
+                intensity = 0
+
+            distance = np.linalg.norm(intersection_point - self.position)
+            total_intensity += intensity / distance ** 2
             light_vectors.append(light_vector)
 
         return total_intensity, light_vectors

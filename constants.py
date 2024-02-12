@@ -1,6 +1,6 @@
 import numpy as np
-WIDTH = 100
-HEIGHT = 100
+WIDTH = 300
+HEIGHT = 300
 image_directory = "Images/"
 WHITE = np.array([1.0, 1.0, 1.0])
 BLACK = np.array([0.0, 0.0, 0.0])
