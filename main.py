@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from constants import *
 import matplotlib.pyplot as plt
 import objects
@@ -142,9 +143,10 @@ def raytrace():
 
 
 def main():
+    start = time.time()
     image = raytrace()
     plt.imsave(image_directory + "test.png", image)
-
+    print(f"Generating the image took {round(time.time() - start, 3)} seconds")
 
 
 if __name__ == '__main__':

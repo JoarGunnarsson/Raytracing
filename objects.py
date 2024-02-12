@@ -2,7 +2,6 @@ import numpy as np
 from constants import *
 import materials
 import math
-EPSILON = 0.0001
 
 
 class Object:
@@ -11,9 +10,6 @@ class Object:
         self.y = y
         self.z = z
         self.position = np.array([x, y, z], dtype=float)
-
-    def get_position(self):
-        return self.position
 
 
 class Camera(Object):
@@ -51,13 +47,6 @@ class Screen(Object):
         Y = (self.pixels_y - Y) * self.height / self.pixels_y - self.height / 2
         Y = Y * self.y_vector
         return X + Y + self.position
-
-
-def multiply_matrix_by_vector_elementwise(A, v):
-    A_height, A_width = A.shape
-    A = A.reshape(-1, 1, 1)
-    A = A * v
-    return A.reshape(A_height, A_width, 3)
 
 
 class Sphere(Object):
@@ -134,6 +123,7 @@ class DiskSource(LightSource):
         for i in range(self.n_points):
             theta = np.random.random(size) * 2 * math.pi
             d = np.random.random(size)**0.5 * self.radius
+
             random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
             random_light_point = self.position + random_point_local
             light_vectors = random_light_point - intersection_points
