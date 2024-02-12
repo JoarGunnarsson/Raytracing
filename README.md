@@ -1,6 +1,8 @@
 # Python Ray Tracing Project
 
-This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path of light takes, interaction with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Diffusive and specular effects are available, as well as reflections. Currently, only spheres are implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source
+This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path light takes, interacting with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Materials can have both diffusive and specular properties are available. Objects can also be reflective. Currently, only spheres are implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source.
+
+The same algorithm is implemented in two different ways. One uses vectorized operations, exploiting the fast speed of numpy, while the other does not. The vectorized approach is much faster (at least 70x), but results in a higher difficulty for defining custom objects.
 
 
 ### Example scene
@@ -20,6 +22,21 @@ The project consists of several Python files, including:
 - `materials.py`: Defines material properties used for shading objects.
   - Additional material properties can be added for increased realism.
 
+## Overview
+
+The project consists of several Python files, organized as follows:
+
+- `main.py`: Entry-point for running the code.
+- `constants.py`: Constants defining colors, the size of the image etc.
+- `non_vectorized/`: Contains the non-vectorized version of the ray tracing implementation.
+  - `raytrace.py`: Implements ray tracing algorithms using non-vectorized operations.
+  - `materials.py`: Implements materials.
+  - `objects.py`: Implements scene objects.
+- `vectorized/`: Contains the vectorized version of the ray tracing implementation.
+  - `raytrace.py`: Implements ray tracing algorithms using vectorized operations.
+  - `materials.py`: Implements materials that supports vectorized operations.
+  - `objects.py`: Implements scene objects in a way that supports vectorized operations.
+
 ## Dependencies
 - `numpy`
 - `matplotlib`
@@ -32,4 +49,4 @@ To run the ray tracing simulation and generate an image, simply execute the `mai
 python main.py
 ```
 
-You can define your own objects, light sources and materials in the `main.py`, `objects.py`, and `materials.py` to suit your needs.
+You can define your own objects, light sources and materials in `objects.py`, and `materials.py` to suit your needs.
