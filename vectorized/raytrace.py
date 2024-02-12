@@ -1,9 +1,6 @@
-import numpy as np
-import time
 from constants import *
-import matplotlib.pyplot as plt
-import objects
-import materials
+import vectorized.objects as objects
+import vectorized.materials as materials
 
 
 def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
@@ -148,14 +145,3 @@ def raytrace():
     image_array = image_array.reshape((HEIGHT, WIDTH, 3))
     screen.image = image_array
     return screen.image
-
-
-def main():
-    start = time.time()
-    image = raytrace()
-    plt.imsave(image_directory + f"test.png", image)
-    print(f"Generating the image took {round(time.time() - start, 3)} seconds")
-
-
-if __name__ == '__main__':
-    main()

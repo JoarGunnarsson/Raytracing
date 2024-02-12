@@ -1,7 +1,6 @@
-import numpy as np
 import random
 from constants import *
-import materials
+import non_vectorized.materials as materials
 import math
 
 EPSILON = 0.0001

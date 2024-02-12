@@ -1,6 +1,5 @@
-import numpy as np
 from constants import *
-import materials
+import vectorized.materials as materials
 import math
 
 

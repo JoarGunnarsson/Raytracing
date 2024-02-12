@@ -1,4 +1,3 @@
-import numpy as np
 from constants import *
 
 
@@ -21,7 +20,3 @@ class Material:
 
         new_color = I_diffuse * self.diffuse_color + I_specular * self.specular_color
         return new_color
-
-
-def clamp(x, minimum, maximum):
-    return min(max(x, minimum), maximum)
