@@ -15,7 +15,7 @@ class Object:
 class Camera(Object):
     def __init__(self, x=0, y=0, z=0, viewing_direction=None):
         if viewing_direction is None:
-            viewing_direction = np.array([1/2**0.5, 0, -1/2**0.5])
+            viewing_direction = np.array([1 / 2 ** 0.5, 0, -1 / 2 ** 0.5])
         super().__init__(x, y, z)
         self.viewing_direction = viewing_direction
         self.y_vector = np.array([0.1, 0, 0.97])
@@ -96,19 +96,20 @@ class PointSource(LightSource):
         non_obscured_indices = obscuring_objects == -1
         distances = norms.reshape(size)
 
-        intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]**2
+        intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices] ** 2
         return intensities, [light_vectors]
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, intensity=15, angle=90):
+    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=90):
         super().__init__(x, y, z, intensity=intensity)
-        self.radius = 3
+        self.radius = radius
         self.n_points = 30
         self.angle = angle * np.pi / 180
         self.fall_off_angle = 1 * np.pi / 180
 
     def compute_light_intensity(self, intersection_points, scene_objects):
+        # TODO: Add fall_off_angle
         size, _ = intersection_points.shape
         total_intensities = np.zeros(size)
 
@@ -123,13 +124,12 @@ class DiskSource(LightSource):
         x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
         y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
         z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
-        distance_from_normal_axis = x ** 2 + y ** 2
-        allowed_distance = self.radius * np.cos(self.angle) * z
-
+        distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
+        allowed_distance = self.radius + np.tan(self.angle) * z
         light_vectors_matrix = []
         for i in range(self.n_points):
             theta = np.random.random(size) * 2 * math.pi
-            d = np.random.random(size)**0.5 * self.radius
+            d = np.random.random(size) ** 0.5 * self.radius
 
             random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
             random_light_point = self.position + random_point_local
@@ -147,14 +147,13 @@ class DiskSource(LightSource):
                 ok_indices = distance_from_normal_axis[non_obscured_indices] <= allowed_distance[non_obscured_indices]
                 modifier[ok_indices] = 1
 
-            intensities = modifier * self.intensity / self.n_points / distances[non_obscured_indices]**2
+            intensities = modifier * self.intensity / self.n_points / distances[non_obscured_indices] ** 2
 
             total_intensities[non_obscured_indices] += intensities
 
             light_vectors_matrix.append(light_vectors)
 
         return total_intensities, light_vectors_matrix
-
 
 
 def solve_quadratic(B, C):

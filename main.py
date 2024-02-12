@@ -124,14 +124,14 @@ def get_shininess(obj):
     return obj.material.shininess
 
 
-def raytrace(t):
+def raytrace():
     scene_objects = [objects.Sphere(x=4, z=-1000000, radius=1000000,
                                     material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3,
                                                                 reflection_coefficient=0.24)),
                      objects.Sphere(x=4, z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(x=4, y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=t)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=0, radius=2)]
     camera = objects.Camera(x=0, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))
@@ -145,8 +145,8 @@ def raytrace(t):
 
 def main():
     start = time.time()
-    image = raytrace(0)
-    plt.imsave(image_directory + f"test{0}.png", image)
+    image = raytrace()
+    plt.imsave(image_directory + f"test.png", image)
     print(f"Generating the image took {round(time.time() - start, 3)} seconds")
 
 
