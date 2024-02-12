@@ -1,6 +1,7 @@
 from constants import *
 import vectorized.objects as objects
 import vectorized.materials as materials
+import numpy as np
 
 
 def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
@@ -58,21 +59,28 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
     for light in light_sources:
         light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
         non_black_indices = light_intensities != 0
+        black_indices = np.logical_not(non_black_indices)
 
         surface_color = compute_surface_color(scene_objects, seen_objects[non_black_indices], direction_vectors[non_black_indices], normal_vectors[non_black_indices], light_intensities[non_black_indices],
                                               light_vectors_matrix, non_black_indices)
 
-        comb = combined_colors[valid_indices]
+        combined_colors_at_valid_indices = combined_colors[valid_indices]
         if depth == 0:
             combined_colors[invalid_indices] = SKY_BLUE
-            comb[non_black_indices] += surface_color
-            combined_colors[valid_indices] = comb
+            combined_colors_at_valid_indices[non_black_indices] += surface_color
+            combined_colors[valid_indices] = combined_colors_at_valid_indices
             continue
 
         combined_colors[invalid_indices] = SKY_BLUE
-        comb[non_black_indices] += surface_color * (1 - alpha[non_black_indices]) + alpha[non_black_indices] * reflection_colors[non_black_indices]
-        comb[np.logical_not(non_black_indices)] += alpha[np.logical_not(non_black_indices)] * reflection_colors[np.logical_not(non_black_indices)]
-        combined_colors[valid_indices] = comb
+
+        alpha_at_non_black_indices = alpha[non_black_indices]
+        surface_colors_weighted = surface_color * (1 - alpha_at_non_black_indices)
+        reflection_colors_weighted = alpha_at_non_black_indices * reflection_colors[non_black_indices]
+
+        combined_colors_at_valid_indices[non_black_indices] += surface_colors_weighted + reflection_colors_weighted
+        combined_colors_at_valid_indices[black_indices] += alpha[black_indices] * reflection_colors[black_indices]
+        combined_colors[valid_indices] = combined_colors_at_valid_indices
+
     return np.clip(combined_colors, 0, 1)
 
 

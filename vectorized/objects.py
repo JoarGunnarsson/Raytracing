@@ -1,6 +1,7 @@
 from constants import *
 import vectorized.materials as materials
 import math
+import numpy as np
 
 
 class Object:
@@ -120,11 +121,12 @@ class DiskSource(LightSource):
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
         y_hat = np.cross(self.normal_vector, x_hat)
 
-        x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
-        y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
-        z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
-        distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
-        allowed_distance = self.radius + np.tan(self.angle) * z
+        if self.angle != np.deg2rad(90):
+            x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
+            y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
+            z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
+            distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
+            allowed_distance = self.radius + np.tan(self.angle) * z
         light_vectors_matrix = []
         for i in range(self.n_points):
             theta = np.random.random(size) * 2 * math.pi
