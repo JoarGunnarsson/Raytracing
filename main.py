@@ -60,24 +60,30 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
     for light in light_sources:
         light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
-        surface_color = compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities,
-                                              light_vectors_matrix)
+        non_black_indices = light_intensities != 0
 
+        surface_color = compute_surface_color(scene_objects, seen_objects[non_black_indices], direction_vectors[non_black_indices], normal_vectors[non_black_indices], light_intensities[non_black_indices],
+                                              light_vectors_matrix, non_black_indices)
+
+        comb = combined_colors[valid_indices]
         if depth == 0:
             combined_colors[invalid_indices] = SKY_BLUE
-            combined_colors[valid_indices] += surface_color
+            comb[non_black_indices] += surface_color
+            combined_colors[valid_indices] = comb
             continue
 
         combined_colors[invalid_indices] = SKY_BLUE
-        combined_colors[valid_indices] += surface_color * (1 - alpha) + alpha * reflection_colors
-
+        comb[non_black_indices] += surface_color * (1 - alpha[non_black_indices]) + alpha[non_black_indices] * reflection_colors[non_black_indices]
+        comb[np.logical_not(non_black_indices)] += alpha[np.logical_not(non_black_indices)] * reflection_colors[np.logical_not(non_black_indices)]
+        combined_colors[valid_indices] = comb
     return np.clip(combined_colors, 0, 1)
 
 
-def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix):
+def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix, non_black_indices):
     # TODO: Only do this for array elements that have non_zero intensities.
     surface_color = np.full(direction_vectors.shape, BLACK.copy())
     for k, light_vec in enumerate(light_vectors_matrix):
+        light_vec = light_vec[non_black_indices]
         normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
         reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, None] + light_vec
         reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors, axis=-1)
@@ -132,7 +138,7 @@ def raytrace():
                      objects.Sphere(x=4, z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(x=4, y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=3, radius=2)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=90, radius=2)]
     camera = objects.Camera(x=0, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))
