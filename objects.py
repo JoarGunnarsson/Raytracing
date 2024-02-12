@@ -141,11 +141,11 @@ class DiskSource(LightSource):
             non_obscured_indices = obscuring_objects == -1
 
             distances = norms.reshape(size)
-            modifier = np.zeros(intersection_points[non_obscured_indices].shape[0])
+            modifier = np.ones(intersection_points[non_obscured_indices].shape[0])
 
             if self.angle != np.deg2rad(90):
-                ok_indices = distance_from_normal_axis[non_obscured_indices] <= allowed_distance[non_obscured_indices]
-                modifier[ok_indices] = 1
+                not_ok_indices = distance_from_normal_axis[non_obscured_indices] > allowed_distance[non_obscured_indices]
+                modifier[not_ok_indices] = 0
 
             intensities = modifier * self.intensity / self.n_points / distances[non_obscured_indices] ** 2
 

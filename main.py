@@ -87,9 +87,10 @@ def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal
             specular_color = get_specular_color(obj)
             shininess = get_shininess(obj)
 
-            I_diffuse = diffusive_color * normal_dot_light_vectors[relevant_indices][:, None]
-            I_specular = specular_color * reflection_dot_direction_vectors[relevant_indices][:, None] ** shininess
-            surface_color[relevant_indices] += (I_diffuse + I_specular) * light_intensities[relevant_indices][:, None] / len(light_vectors_matrix)
+            I_diffuse = np.clip(diffusive_color * normal_dot_light_vectors[relevant_indices][:, None], 0, 1)
+            I_specular = np.clip(specular_color * reflection_dot_direction_vectors[relevant_indices][:, None] ** shininess, 0, 1)
+            color = (I_diffuse + I_specular) * light_intensities[relevant_indices][:, None] / len(light_vectors_matrix)
+            surface_color[relevant_indices] += np.clip(color, 0, 1)
 
     return np.clip(surface_color, 0, 1)
 
@@ -131,7 +132,7 @@ def raytrace():
                      objects.Sphere(x=4, z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(x=4, y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=0, radius=2)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=3, radius=2)]
     camera = objects.Camera(x=0, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))
