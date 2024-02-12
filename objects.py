@@ -29,7 +29,7 @@ class Camera(Object):
 
 class Screen(Object):
     def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1, 0, 0]),
-                 y_vector=np.array([0, 0, 1]), width=1, height=1):
+                 y_vector=np.array([0, 0, 1]), width=3, height=1):
         super().__init__(x, y, z)
         self.width = width
         self.height = width * HEIGHT / WIDTH
@@ -70,6 +70,7 @@ class LightSource(Object):
     def __init__(self, x=4, y=0, z=1000, intensity=15):
         super().__init__(x, y, z)
         self.intensity = intensity
+        self.normal_vector = np.array([0.0, 0.0, -1.0])
 
     def compute_light_intensity(self, *args, **kwargs):
         """Virtual method to be implemented in child classes."""
@@ -77,7 +78,7 @@ class LightSource(Object):
 
 
 class PointSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, intensity=15):
+    def __init__(self, x=4, y=0, z=20, intensity=15, angle=90):
         super().__init__(x, y, z, intensity=intensity)
 
     def compute_light_intensity(self, intersection_points, scene_objects):
@@ -96,16 +97,16 @@ class PointSource(LightSource):
         distances = norms.reshape(size)
 
         intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices]**2
-        ###
         return intensities, [light_vectors]
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, intensity=15):
+    def __init__(self, x=4, y=0, z=20, intensity=15, angle=90):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = 3
         self.n_points = 30
-        self.normal_vector = np.array([0.0, 0.0, -1.0])
+        self.angle = angle * np.pi / 180
+        self.fall_off_angle = 1 * np.pi / 180
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size, _ = intersection_points.shape
@@ -118,6 +119,12 @@ class DiskSource(LightSource):
 
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
         y_hat = np.cross(self.normal_vector, x_hat)
+
+        x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
+        y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
+        z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
+        distance_from_normal_axis = x ** 2 + y ** 2
+        allowed_distance = self.radius * np.cos(self.angle) * z
 
         light_vectors_matrix = []
         for i in range(self.n_points):
@@ -132,11 +139,22 @@ class DiskSource(LightSource):
             obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
             non_obscured_indices = obscuring_objects == -1
+
             distances = norms.reshape(size)
-            total_intensities[non_obscured_indices] += self.intensity / self.n_points / distances[non_obscured_indices]**2
+            modifier = np.zeros(intersection_points[non_obscured_indices].shape[0])
+
+            if self.angle != np.deg2rad(90):
+                ok_indices = distance_from_normal_axis[non_obscured_indices] <= allowed_distance[non_obscured_indices]
+                modifier[ok_indices] = 1
+
+            intensities = modifier * self.intensity / self.n_points / distances[non_obscured_indices]**2
+
+            total_intensities[non_obscured_indices] += intensities
 
             light_vectors_matrix.append(light_vectors)
+
         return total_intensities, light_vectors_matrix
+
 
 
 def solve_quadratic(B, C):
