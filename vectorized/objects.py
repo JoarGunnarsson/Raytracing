@@ -29,7 +29,7 @@ class Camera(Object):
 
 class Screen(Object):
     def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1, 0, 0]),
-                 y_vector=np.array([0, 0, 1]), width=3, height=1):
+                 y_vector=np.array([0, 0, 1]), width=1, height=1):
         super().__init__(x, y, z)
         self.width = width
         self.height = width * HEIGHT / WIDTH
@@ -126,7 +126,17 @@ class DiskSource(LightSource):
             y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
             z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
             distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
-            allowed_distance = self.radius + np.tan(self.angle) * z
+            allowed_distance = self.radius + np.tan(self.angle) * np.abs(z)
+
+            inside_light_beam_indices = distance_from_normal_axis <= allowed_distance
+            relevant_total_intensities = total_intensities[inside_light_beam_indices]
+
+            visible_intersection_points = intersection_points[inside_light_beam_indices]
+        else:
+            relevant_total_intensities = total_intensities
+            visible_intersection_points = intersection_points
+            inside_light_beam_indices = np.ones(size, dtype=bool)
+
         light_vectors_matrix = []
         for i in range(self.n_points):
             theta = np.random.random(size) * 2 * math.pi
@@ -137,22 +147,19 @@ class DiskSource(LightSource):
             light_vectors = random_light_point - intersection_points
             norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
             light_vectors = light_vectors / norms
-            obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
+            obscuring_objects, _ = find_closest_intersected_object(visible_intersection_points, light_vectors[inside_light_beam_indices], scene_objects)
 
             non_obscured_indices = obscuring_objects == -1
 
-            distances = norms.reshape(size)
-            modifier = np.ones(intersection_points[non_obscured_indices].shape[0])
+            distances = norms[inside_light_beam_indices].reshape(visible_intersection_points.shape[0])
 
-            if self.angle != np.deg2rad(90):
-                not_ok_indices = distance_from_normal_axis[non_obscured_indices] > allowed_distance[non_obscured_indices]
-                modifier[not_ok_indices] = 0
+            intensities = self.intensity / self.n_points / distances[non_obscured_indices] ** 2
 
-            intensities = modifier * self.intensity / self.n_points / distances[non_obscured_indices] ** 2
-
-            total_intensities[non_obscured_indices] += intensities
+            relevant_total_intensities[non_obscured_indices] += intensities
 
             light_vectors_matrix.append(light_vectors)
+
+        total_intensities[inside_light_beam_indices] = relevant_total_intensities
 
         return total_intensities, light_vectors_matrix
 
@@ -195,3 +202,5 @@ def find_closest_intersected_object(starting_positions, direction_vectors, objec
         closest_objects[new_closest_object_found_indices] = i
 
     return closest_objects, min_t[:, None]
+
+

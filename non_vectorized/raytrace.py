@@ -16,7 +16,7 @@ def get_pixel_color(i, j, screen, camera, scene_objects, light_sources):
 def get_intersection_color(start_position, direction_vector, scene_objects, light_sources, depth=1):
     seen_object, t = objects.find_closes_intersected_object(start_position, direction_vector, scene_objects)
     if seen_object is None:
-        return SKY_BLUE.copy()
+        return BACKGROUND_COLOR.copy()
 
     intersection_point = start_position + direction_vector * t
     intersection_point += seen_object.small_normal_offset(intersection_point)

@@ -24,7 +24,7 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
     seen_objects = seen_objects[valid_indices]
     if len(seen_objects) == 0:
-        combined_colors[invalid_indices] = SKY_BLUE
+        combined_colors[invalid_indices] = BACKGROUND_COLOR
         return combined_colors
 
     starting_positions = starting_positions[valid_indices]
@@ -66,12 +66,12 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
 
         combined_colors_at_valid_indices = combined_colors[valid_indices]
         if depth == 0:
-            combined_colors[invalid_indices] = SKY_BLUE
+            combined_colors[invalid_indices] = BACKGROUND_COLOR
             combined_colors_at_valid_indices[non_black_indices] += surface_color
             combined_colors[valid_indices] = combined_colors_at_valid_indices
             continue
 
-        combined_colors[invalid_indices] = SKY_BLUE
+        combined_colors[invalid_indices] = BACKGROUND_COLOR
 
         alpha_at_non_black_indices = alpha[non_black_indices]
         surface_colors_weighted = surface_color * (1 - alpha_at_non_black_indices)
@@ -137,14 +137,14 @@ def get_shininess(obj):
 
 
 def raytrace():
-    scene_objects = [objects.Sphere(x=4, z=-1000000, radius=1000000,
+    scene_objects = [objects.Sphere(z=-1000000, radius=1000000,
                                     material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3,
                                                                 reflection_coefficient=0.24)),
-                     objects.Sphere(x=4, z=1, radius=1,
+                     objects.Sphere(z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
-                     objects.Sphere(x=4, y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=90, radius=2)]
-    camera = objects.Camera(x=0, z=4)
+                     objects.Sphere(y=2, z=1.25, radius=0.5)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5, angle=90)]
+    camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))
     X = X.reshape(SIZE, 1)
