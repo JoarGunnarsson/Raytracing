@@ -107,13 +107,59 @@ class EasingModes:
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=90, easing_mode=EasingModes.QUADRATIC):
+    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
         self.n_points = 30
+
+    def compute_light_intensity(self, intersection_points, scene_objects):
+        size, _ = intersection_points.shape
+        total_intensities = np.zeros(size)
+
+        if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
+            perpendicular_vector = np.array([0.0, 1.0, 0.0])
+        else:
+            perpendicular_vector = np.array([1.0, 0.0, 0.0])
+
+        x_hat = np.cross(self.normal_vector, perpendicular_vector)
+        y_hat = np.cross(self.normal_vector, x_hat)
+
+        visible_intersection_points = intersection_points
+
+        light_vectors_matrix = []
+        for i in range(self.n_points):
+            theta = np.random.random(size) * 2 * math.pi
+            d = np.random.random(size) ** 0.5 * self.radius
+
+            random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
+            random_light_point = self.position + random_point_local
+            light_vectors = random_light_point - intersection_points
+            norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
+            light_vectors = light_vectors / norms
+            obscuring_objects, _ = find_closest_intersected_object(visible_intersection_points, light_vectors, scene_objects)
+
+            non_obscured_indices = obscuring_objects == -1
+
+            distances = norms.reshape(visible_intersection_points.shape[0])
+
+            intensities = self.intensity / self.n_points / distances[non_obscured_indices] ** 2
+
+            total_intensities[non_obscured_indices] += intensities
+
+            light_vectors_matrix.append(light_vectors)
+
+        return total_intensities, light_vectors_matrix
+
+
+class DirectionalDiskSource(DiskSource):
+    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=30, easing_mode=EasingModes.EXPONENTIAL):
+        super().__init__(x, y, z, radius=radius, intensity=intensity)
         self.angle = angle * np.pi / 180
         self.fall_off_angle = 20 * np.pi / 180
         self.easing_mode = easing_mode
+        if angle == 90:
+            print("Using a directional disk source with an angle of 90 degrees is not recommended. "
+                  "Use DiskSource instead.")
 
     def ease_fall_off_beam(self, x, a, d):
         eased_matrix = np.ones(x.shape)
@@ -130,7 +176,6 @@ class DiskSource(LightSource):
         return eased_matrix
 
     def compute_light_intensity(self, intersection_points, scene_objects):
-        # TODO: Add fall_off_angle
         size, _ = intersection_points.shape
         total_intensities = np.zeros(size)
 
@@ -142,24 +187,19 @@ class DiskSource(LightSource):
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
         y_hat = np.cross(self.normal_vector, x_hat)
 
-        if self.angle != np.deg2rad(90):
-            x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
-            y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
-            z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
-            distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
+        x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
+        y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
+        z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
+        distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
 
-            allowed_distance = self.radius + np.tan(self.angle) * np.abs(z)
-            distance_to_edge_off_fall_off_region = self.radius + np.tan(self.angle + self.fall_off_angle) * np.abs(z)
-            allowed_fall_off_distance = distance_to_edge_off_fall_off_region - allowed_distance
+        allowed_distance = self.radius + np.tan(self.angle) * np.abs(z)
+        distance_to_edge_off_fall_off_region = self.radius + np.tan(self.angle + self.fall_off_angle) * np.abs(z)
+        allowed_fall_off_distance = distance_to_edge_off_fall_off_region - allowed_distance
 
-            inside_light_beam_indices = distance_from_normal_axis <= distance_to_edge_off_fall_off_region
-            relevant_total_intensities = total_intensities[inside_light_beam_indices]
+        inside_light_beam_indices = distance_from_normal_axis <= distance_to_edge_off_fall_off_region
+        relevant_total_intensities = total_intensities[inside_light_beam_indices]
 
-            visible_intersection_points = intersection_points[inside_light_beam_indices]
-        else:
-            relevant_total_intensities = total_intensities
-            visible_intersection_points = intersection_points
-            inside_light_beam_indices = np.ones(size, dtype=bool)
+        visible_intersection_points = intersection_points[inside_light_beam_indices]
 
         light_vectors_matrix = []
         for i in range(self.n_points):
@@ -179,30 +219,23 @@ class DiskSource(LightSource):
 
             intensities = self.intensity / self.n_points / distances[non_obscured_indices] ** 2
 
-            if self.angle != np.deg2rad(90):
-                x = distance_from_normal_axis[inside_light_beam_indices]
-                x = x[non_obscured_indices]
+            x = distance_from_normal_axis[inside_light_beam_indices]
+            x = x[non_obscured_indices]
 
-                d = allowed_fall_off_distance[inside_light_beam_indices]
-                d = d[non_obscured_indices]
+            d = allowed_fall_off_distance[inside_light_beam_indices]
+            d = d[non_obscured_indices]
 
-                a = allowed_distance[inside_light_beam_indices]
-                a = a[non_obscured_indices]
+            a = allowed_distance[inside_light_beam_indices]
+            a = a[non_obscured_indices]
 
-                fall_off_factors = self.ease_fall_off_beam(x, a, d)
-                relevant_total_intensities[non_obscured_indices] += intensities * fall_off_factors
-            else:
-                relevant_total_intensities[non_obscured_indices] += intensities
+            fall_off_factors = self.ease_fall_off_beam(x, a, d)
+            relevant_total_intensities[non_obscured_indices] += intensities * fall_off_factors
 
             light_vectors_matrix.append(light_vectors)
 
         total_intensities[inside_light_beam_indices] = relevant_total_intensities
 
         return total_intensities, light_vectors_matrix
-
-
-class DirectionalDiskSource(DiskSource):
-    pass
 
 
 def solve_quadratic(B, C):
