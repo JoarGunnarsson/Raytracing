@@ -29,7 +29,7 @@ class Camera(Object):
 
 class Screen(Object):
     def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1, 0, 0]),
-                 y_vector=np.array([0, 0, 1]), width=3, height=1):
+                 y_vector=np.array([0, 0, 1]), width=1, height=1):
         super().__init__(x, y, z)
         self.width = width
         self.height = width * HEIGHT / WIDTH
@@ -102,11 +102,12 @@ class PointSource(LightSource):
 
 class EasingModes:
     LINEAR = "linear"
+    QUADRATIC = "quadratic"
     EXPONENTIAL = "exponential"
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=90, easing_mode=EasingModes.LINEAR):
+    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=90, easing_mode=EasingModes.QUADRATIC):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
         self.n_points = 30
@@ -115,13 +116,18 @@ class DiskSource(LightSource):
         self.easing_mode = easing_mode
 
     def ease_fall_off_beam(self, x, a, d):
+        eased_matrix = np.ones(x.shape)
+        valid_indices = d != 0
         if self.easing_mode == EasingModes.LINEAR:
-            return np.minimum(np.maximum(-x/d + a/d + 1, 0), 1)
+            eased_matrix[valid_indices] = linear_easing(x[valid_indices], a[valid_indices], d[valid_indices])
+
+        elif self.easing_mode == EasingModes.QUADRATIC:
+            eased_matrix[valid_indices] = quadratic_easing(x[valid_indices], a[valid_indices], d[valid_indices])
 
         elif self.easing_mode == EasingModes.EXPONENTIAL:
-            return 1 - 1 / (1 + np.exp(-10 / d * (x-(a+d/2))))
+            eased_matrix[valid_indices] = exponential_easing(x[valid_indices], a[valid_indices], d[valid_indices])
 
-        return np.ones(x.shape)
+        return eased_matrix
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         # TODO: Add fall_off_angle
@@ -195,6 +201,10 @@ class DiskSource(LightSource):
         return total_intensities, light_vectors_matrix
 
 
+class DirectionalDiskSource(DiskSource):
+    pass
+
+
 def solve_quadratic(B, C):
     """Solves a special case quadratic equation with a = 1."""
     solutions = -np.ones(B.shape)
@@ -235,3 +245,19 @@ def find_closest_intersected_object(starting_positions, direction_vectors, objec
     return closest_objects, min_t[:, None]
 
 
+def linear_easing(x, a, d):
+    return np.minimum(np.maximum((a - x) / d + 1, 0), 1)
+
+
+def quadratic_easing(x, a, d):
+    before_easing_starts_indices = x < a
+    after_easing_stops_indices = x > a + d
+    easing_indices = np.logical_not(np.logical_or(before_easing_starts_indices, after_easing_stops_indices))
+    result = np.zeros(x.shape)
+    result[easing_indices] = 1 - (x[easing_indices]-a[easing_indices]) * (1 - (x[easing_indices] - (a[easing_indices] + d[easing_indices])) / d[easing_indices]) / d[easing_indices]
+    result[before_easing_starts_indices] = 1
+    return result
+
+
+def exponential_easing(x, a, d):
+    return 1 - 1 / (1 + np.exp(-10 / d * (x - a - d / 2)))
