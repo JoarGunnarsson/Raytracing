@@ -1,14 +1,13 @@
 import time
 import matplotlib.pyplot as plt
-import vectorized.raytrace as vectorized
-import non_vectorized.raytrace as non_vectorized
 from constants import *
+from raytrace import raytrace
 
 
 def main():
     start = time.time()
-    image = vectorized.raytrace()
-    plt.imsave(image_directory + "test.png", image)
+    image = raytrace()
+    plt.imsave(image_directory + "result.png", image)
     print(f"The program took {time.time() - start} seconds to run.")
 
 

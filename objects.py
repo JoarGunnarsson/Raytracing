@@ -1,5 +1,5 @@
 from constants import *
-import vectorized.materials as materials
+import materials as materials
 import math
 import numpy as np
 
@@ -29,7 +29,7 @@ class Camera(Object):
 
 class Screen(Object):
     def __init__(self, x=1, y=0, z=0, normal_vector=np.array([1, 0, 0]),
-                 y_vector=np.array([0, 0, 1]), width=1, height=1):
+                 y_vector=np.array([0, 0, 1]), width=1):
         super().__init__(x, y, z)
         self.width = width
         self.height = width * HEIGHT / WIDTH

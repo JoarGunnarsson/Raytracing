@@ -1,8 +1,6 @@
 # Python Ray Tracing Project
 
-This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path light takes, interacting with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Materials can have both diffusive and specular properties are available. Objects can also be reflective. Currently, only spheres are implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source.
-
-The same algorithm is implemented in two different ways. One uses vectorized operations, exploiting the fast speed of numpy, while the other does not. The vectorized approach is much faster (at least 70x), but results in a higher difficulty for defining custom objects.
+This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path light takes, interacting with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Materials can have diffusive, specular, and reflective properties are available. Currently, only spheres are implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source.
 
 
 ### Example scene
