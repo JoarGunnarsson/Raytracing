@@ -135,7 +135,7 @@ def raytrace():
                      objects.Sphere(z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.PointSource(x=4, y=0, z=5)]
+    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))
