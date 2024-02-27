@@ -78,7 +78,7 @@ class LightSource(Object):
 
 
 class PointSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, intensity=15, angle=90):
+    def __init__(self, x=4, y=0, z=20, intensity=15):
         super().__init__(x, y, z, intensity=intensity)
 
     def compute_light_intensity(self, intersection_points, scene_objects):
@@ -100,17 +100,11 @@ class PointSource(LightSource):
         return intensities, [light_vectors]
 
 
-class EasingModes:
-    LINEAR = "linear"
-    QUADRATIC = "quadratic"
-    EXPONENTIAL = "exponential"
-
-
 class DiskSource(LightSource):
     def __init__(self, x=4, y=0, z=20, radius=3, intensity=15):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
-        self.n_points = 30
+        self.n_points = 80
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size, _ = intersection_points.shape
@@ -151,6 +145,14 @@ class DiskSource(LightSource):
         return total_intensities, light_vectors_matrix
 
 
+class EasingModes:
+    NONE = "none"
+    LINEAR = "linear"
+    QUADRATIC = "quadratic"
+    CUBIC = "cubic"
+    EXPONENTIAL = "exponential"
+
+
 class DirectionalDiskSource(DiskSource):
     def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=30, easing_mode=EasingModes.EXPONENTIAL):
         super().__init__(x, y, z, radius=radius, intensity=intensity)
@@ -169,6 +171,9 @@ class DirectionalDiskSource(DiskSource):
 
         elif self.easing_mode == EasingModes.QUADRATIC:
             eased_matrix[valid_indices] = quadratic_easing(x[valid_indices], a[valid_indices], d[valid_indices])
+
+        elif self.easing_mode == EasingModes.CUBIC:
+            eased_matrix[valid_indices] = cubic_easing(x[valid_indices], a[valid_indices], d[valid_indices])
 
         elif self.easing_mode == EasingModes.EXPONENTIAL:
             eased_matrix[valid_indices] = exponential_easing(x[valid_indices], a[valid_indices], d[valid_indices])
@@ -286,8 +291,29 @@ def quadratic_easing(x, a, d):
     before_easing_starts_indices = x < a
     after_easing_stops_indices = x > a + d
     easing_indices = np.logical_not(np.logical_or(before_easing_starts_indices, after_easing_stops_indices))
+
     result = np.zeros(x.shape)
-    result[easing_indices] = 1 - (x[easing_indices]-a[easing_indices]) * (1 - (x[easing_indices] - (a[easing_indices] + d[easing_indices])) / d[easing_indices]) / d[easing_indices]
+
+    x = x[easing_indices]
+    a = a[easing_indices]
+    d = d[easing_indices]
+    result[easing_indices] = 1 - (x - a) * (1 / d - (x - (a + d)) / d ** 2)
+
+    result[before_easing_starts_indices] = 1
+    return result
+
+
+def cubic_easing(x, a, d):
+    before_easing_starts_indices = x < a
+    after_easing_stops_indices = x > a + d
+    easing_indices = np.logical_not(np.logical_or(before_easing_starts_indices, after_easing_stops_indices))
+    result = np.zeros(x.shape)
+    x = x[easing_indices]
+    a = a[easing_indices]
+    d = d[easing_indices]
+    q = (4 * a + 3 * d) / d ** 3
+    p = (1 - q * d ** 2) / (d ** 2 * (d + 2 * a))
+    result[easing_indices] = 1 - (x - a) * (p * (x ** 2 - (a + d) ** 2) + q * (x - (a + d)) + 1 / d)
     result[before_easing_starts_indices] = 1
     return result
 
