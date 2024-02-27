@@ -57,38 +57,30 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
             alpha[relevant_indices] = get_alpha(obj)
 
     for light in light_sources:
-        light_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
-        non_black_indices = light_intensities != 0
-        black_indices = np.logical_not(non_black_indices)
+        diffuse_intensities, specular_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
 
-        surface_color = compute_surface_color(scene_objects, seen_objects[non_black_indices], direction_vectors[non_black_indices], normal_vectors[non_black_indices], light_intensities[non_black_indices],
-                                              light_vectors_matrix, non_black_indices)
+        surface_color = compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, diffuse_intensities, specular_intensities,
+                                              light_vectors_matrix)
 
-        combined_colors_at_valid_indices = combined_colors[valid_indices]
         if depth == 0:
             combined_colors[invalid_indices] = BACKGROUND_COLOR
-            combined_colors_at_valid_indices[non_black_indices] += surface_color
-            combined_colors[valid_indices] = combined_colors_at_valid_indices
+            combined_colors[valid_indices] += surface_color
             continue
 
         combined_colors[invalid_indices] = BACKGROUND_COLOR
 
-        alpha_at_non_black_indices = alpha[non_black_indices]
-        surface_colors_weighted = surface_color * (1 - alpha_at_non_black_indices)
-        reflection_colors_weighted = alpha_at_non_black_indices * reflection_colors[non_black_indices]
+        surface_colors_weighted = surface_color * (1 - alpha)
+        reflection_colors_weighted = alpha * reflection_colors
 
-        combined_colors_at_valid_indices[non_black_indices] += surface_colors_weighted + reflection_colors_weighted
-        combined_colors_at_valid_indices[black_indices] += alpha[black_indices] * reflection_colors[black_indices]
-        combined_colors[valid_indices] = combined_colors_at_valid_indices
+        combined_colors[valid_indices] += surface_colors_weighted + reflection_colors_weighted
 
     return np.clip(combined_colors, 0, 1)
 
 
-def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, light_intensities, light_vectors_matrix, non_black_indices):
+def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, diffuse_intensities, specular_intensities, light_vectors_matrix):
     # TODO: Only do this for array elements that have non_zero intensities.
     surface_color = np.full(direction_vectors.shape, BLACK.copy())
     for k, light_vec in enumerate(light_vectors_matrix):
-        light_vec = light_vec[non_black_indices]
         normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
         reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, None] + light_vec
         reflection_dot_direction_vectors = np.sum(reflection_vectors * direction_vectors, axis=-1)
@@ -100,7 +92,7 @@ def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal
 
             I_diffuse = np.clip(diffusive_color * normal_dot_light_vectors[relevant_indices][:, None], 0, 1)
             I_specular = np.clip(specular_color * reflection_dot_direction_vectors[relevant_indices][:, None] ** shininess, 0, 1)
-            color = (I_diffuse + I_specular) * light_intensities[relevant_indices][:, None] / len(light_vectors_matrix)
+            color = (I_diffuse * diffuse_intensities[relevant_indices] + I_specular * specular_intensities[relevant_indices]) / len(light_vectors_matrix)
             surface_color[relevant_indices] += np.clip(color, 0, 1)
 
     return np.clip(surface_color, 0, 1)
@@ -143,7 +135,7 @@ def raytrace():
                      objects.Sphere(z=1, radius=1,
                                     material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
                      objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
+    light_sources = [objects.PointSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))

@@ -71,6 +71,8 @@ class LightSource(Object):
         super().__init__(x, y, z)
         self.intensity = intensity
         self.normal_vector = np.array([0.0, 0.0, -1.0])
+        self.diffuse_color = WHITE.copy()
+        self.specular_color = WHITE.copy()
 
     def compute_light_intensity(self, *args, **kwargs):
         """Virtual method to be implemented in child classes."""
@@ -82,8 +84,9 @@ class PointSource(LightSource):
         super().__init__(x, y, z, intensity=intensity)
 
     def compute_light_intensity(self, intersection_points, scene_objects):
-        size, _ = intersection_points.shape
-        intensities = np.zeros(size)
+        size = intersection_points.shape[0]
+        diffuse_intensities = np.zeros((size, 3))
+        specular_intensities = np.zeros((size, 3))
 
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
@@ -91,20 +94,24 @@ class PointSource(LightSource):
         obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
         obscured_indices = obscuring_objects != -1
-        intensities[obscured_indices] = 0
+        diffuse_intensities[obscured_indices] = BLACK.copy()  # TODO: I don't think this is needed.
+        specular_intensities[obscured_indices] = BLACK.copy()  # TODO: I don't think this is needed.
 
         non_obscured_indices = obscuring_objects == -1
         distances = norms.reshape(size)
+        reshaped_distances = distances[non_obscured_indices][:, None]
+        diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / reshaped_distances ** 2
 
-        intensities[non_obscured_indices] = self.intensity / distances[non_obscured_indices] ** 2
-        return intensities, [light_vectors]
+        specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / reshaped_distances ** 2
+
+        return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), [light_vectors]
 
 
 class DiskSource(LightSource):
     def __init__(self, x=4, y=0, z=20, radius=3, intensity=15):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
-        self.n_points = 80
+        self.n_points = 30
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size, _ = intersection_points.shape
