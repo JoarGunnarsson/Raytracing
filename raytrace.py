@@ -16,7 +16,7 @@ def get_pixel_color(X, Y, scene):
     return color
 
 
-def get_intersection_color(starting_positions, direction_vectors, scene, depth=1, refraction_depth=10):
+def get_intersection_color(starting_positions, direction_vectors, scene, depth=1, refraction_depth=3):
     combined_colors = np.full(starting_positions.shape, BLACK.copy())
     seen_objects, T = objects.find_closest_intersected_object(starting_positions, direction_vectors, scene.objects)
     invalid_indices = seen_objects == -1
@@ -90,12 +90,28 @@ def compute_refraction(scene, seen_objects, intersection_points, direction_vecto
     """Computes the color for the refracted rays. Function currently assumes the same index of refraction."""
     # TODO: This refraction depth should be necessary, but refraction should also stop when hitting the sky.
     exit_points = np.zeros(intersection_points.shape)
-    print(seen_objects)
+    transmitted_vectors_out_of_surface = np.zeros(intersection_points.shape)
     for i, obj in enumerate(scene.objects):
         relevant_indices = seen_objects == i
-        t = obj.exit_point(intersection_points[relevant_indices], direction_vectors[relevant_indices])
-        exit_points[relevant_indices] = intersection_points[relevant_indices] + direction_vectors[relevant_indices] * (t[:, None] + EPSILON)
+        transmitted_vectors_into_surface = refract_vectors(intersection_points[relevant_indices], direction_vectors[relevant_indices], 1, obj.material.refractive_index, obj)
+        t = obj.exit_point(intersection_points[relevant_indices], transmitted_vectors_into_surface)
+        exit_points[relevant_indices] = intersection_points[relevant_indices] + transmitted_vectors_into_surface * (t[:, None] + EPSILON)
+        transmitted_vectors_out_of_surface[relevant_indices] = refract_vectors(exit_points[relevant_indices], transmitted_vectors_into_surface, obj.material.refractive_index, 1, obj)
     return get_intersection_color(exit_points, direction_vectors, scene, depth, refraction_depth-1)
+
+
+def refract_vectors(starting_points, incident_vectors, n1, n2, obj):
+    # TODO: Add handling of total internal reflection. Do this by checking when the square root becomes invalid. These index should be separated, be reflected,
+    # returned as a tuple
+    # Also, a refracted ray should be able to be reflected on the exit region of the object.
+    # Perhaps merge reflections and refractions into a single function.
+    mu = n1 / n2
+    normal_vectors = - (starting_points - obj.position)
+    normal_vectors = normal_vectors / np.linalg.norm(normal_vectors, axis=-1, keepdims=True)
+    length_in_normal_direction = ((1 - mu ** 2 * (1 - np.sum(normal_vectors * incident_vectors, axis=-1) ** 2)) ** 0.5)[:, None]
+    temp = np.sum(normal_vectors * incident_vectors, axis=-1)[:, None]
+    transmitted_vectors = length_in_normal_direction * normal_vectors + mu * (incident_vectors - temp * normal_vectors)
+    return transmitted_vectors
 
 
 def compute_surface_color(scene, seen_objects, direction_vectors, normal_vectors, diffuse_intensities, specular_intensities, light_vectors_matrix):
