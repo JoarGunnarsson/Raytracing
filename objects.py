@@ -65,6 +65,16 @@ class Sphere(Object):
         solutions = solve_quadratic(B, C)
         return solutions
 
+    def exit_point(self, starting_positions, direction_vectors):
+        # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
+        # computed etc.
+        dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
+        B = 2 * (dot_product - np.dot(direction_vectors, self.position))
+        difference_in_positions = self.position - starting_positions
+        C = np.sum(difference_in_positions * difference_in_positions, axis=-1) - self.radius ** 2
+        solutions = solve_quadratic_2(B, C)
+        return solutions
+
 
 class LightSource(Object):
     def __init__(self, x=4, y=0, z=1000, intensity=15):
@@ -272,6 +282,33 @@ def solve_quadratic(B, C):
 
     min_ok_indices = 0 < minimum_solutions
     valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+
+    solutions[real_solution_indices] = valid_solutions
+    return solutions
+
+
+def solve_quadratic_2(B, C):
+    """Solves a special case quadratic equation with a = 1. Returns the maximum solution"""
+    solutions = -np.ones(B.shape)
+
+    discriminants = B ** 2 - 4 * C
+    real_solution_indices = 0 <= discriminants
+
+    root_discriminant = discriminants[real_solution_indices] ** 0.5
+    B = B[real_solution_indices]
+    x1 = -B / 2 + root_discriminant / 2
+    x2 = -B / 2 - root_discriminant / 2
+
+    minimum_solutions = np.minimum(x1, x2)
+    maximum_solutions = np.maximum(x1, x2)
+
+    valid_solutions = solutions[real_solution_indices]
+
+    min_ok_indices = 0 < minimum_solutions
+    valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+
+    max_ok_indices = 0 < maximum_solutions
+    valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
     solutions[real_solution_indices] = valid_solutions
     return solutions

@@ -16,7 +16,7 @@ def get_pixel_color(X, Y, screen, camera, scene_objects, light_sources):
     return color
 
 
-def get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1):
+def get_intersection_color(starting_positions, direction_vectors, scene_objects, light_sources, depth=1, refraction_depth=10):
     combined_colors = np.full(starting_positions.shape, BLACK.copy())
     seen_objects, T = objects.find_closest_intersected_object(starting_positions, direction_vectors, scene_objects)
     invalid_indices = seen_objects == -1
@@ -41,13 +41,11 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
     norms = np.linalg.norm(normals, axis=-1, keepdims=True)
     normal_vectors = normals / norms
 
-    EPSILON = 0.001
     intersection_points += normal_vectors * EPSILON
 
-    normal_dot_direction_vectors = np.sum(normal_vectors * direction_vectors, axis=-1)[:, None]
-    reflection_vectors = - 2 * normal_vectors * normal_dot_direction_vectors + direction_vectors
-
     if depth != 0:
+        normal_dot_direction_vectors = np.sum(normal_vectors * direction_vectors, axis=-1)[:, None]
+        reflection_vectors = - 2 * normal_vectors * normal_dot_direction_vectors + direction_vectors
         reflection_colors = get_intersection_color(intersection_points, reflection_vectors, scene_objects, light_sources,
                                                    depth - 1)
 
@@ -56,6 +54,20 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
             relevant_indices = seen_objects == i
             alpha[relevant_indices] = get_alpha(obj)
 
+    # TODO: Compute refraction vectors here (start with no change in angles).
+
+    if refraction_depth != 0:
+        refraction_colors = compute_refraction(seen_objects, intersection_points, direction_vectors, scene_objects, light_sources, depth, refraction_depth)
+    transparency = np.zeros(normal_vectors.shape)
+
+    for i, obj in enumerate(scene_objects):
+        relevant_indices = seen_objects == i
+        transparency[relevant_indices] = get_transparency(obj)
+
+    if refraction_depth != 0:
+        combined_colors[valid_indices] += transparency * refraction_colors
+
+    combined_colors[invalid_indices] = BACKGROUND_COLOR
     for light in light_sources:
         diffuse_intensities, specular_intensities, light_vectors_matrix = light.compute_light_intensity(intersection_points, scene_objects)
 
@@ -63,18 +75,27 @@ def get_intersection_color(starting_positions, direction_vectors, scene_objects,
                                               light_vectors_matrix)
 
         if depth == 0:
-            combined_colors[invalid_indices] = BACKGROUND_COLOR
-            combined_colors[valid_indices] += surface_color
+            combined_colors[valid_indices] += (1 - transparency) * surface_color
             continue
-
-        combined_colors[invalid_indices] = BACKGROUND_COLOR
 
         surface_colors_weighted = surface_color * (1 - alpha)
         reflection_colors_weighted = alpha * reflection_colors
 
-        combined_colors[valid_indices] += surface_colors_weighted + reflection_colors_weighted
+        combined_colors[valid_indices] += (1 - transparency) * (surface_colors_weighted + reflection_colors_weighted)
 
     return np.clip(combined_colors, 0, 1)
+
+
+def compute_refraction(seen_objects, intersection_points, direction_vectors, scene_objects, light_sources, depth, refraction_depth):
+    """Computes the color for the refracted rays. Function currently assumes the same index of refraction."""
+    # TODO: This refraction depth should be necessary, but refraction should also stop when hitting the sky.
+    exit_points = np.zeros(intersection_points.shape)
+    print(seen_objects)
+    for i, obj in enumerate(scene_objects):
+        relevant_indices = seen_objects == i
+        t = obj.exit_point(intersection_points[relevant_indices], direction_vectors[relevant_indices])
+        exit_points[relevant_indices] = intersection_points[relevant_indices] + direction_vectors[relevant_indices] * (t[:, None] + EPSILON)
+    return get_intersection_color(exit_points, direction_vectors, scene_objects, light_sources, depth, refraction_depth-1)
 
 
 def compute_surface_color(scene_objects, seen_objects, direction_vectors, normal_vectors, diffuse_intensities, specular_intensities, light_vectors_matrix):
@@ -122,6 +143,12 @@ def get_alpha(obj):
     return obj.material.reflection_coefficient
 
 
+def get_transparency(obj):
+    if obj is None:
+        return 0
+    return obj.material.transparency_coefficient
+
+
 def get_shininess(obj):
     if obj is None:
         return 0
@@ -131,11 +158,12 @@ def get_shininess(obj):
 def raytrace():
     scene_objects = [objects.Sphere(z=-1000000, radius=1000000,
                                     material=materials.Material(diffuse_color=WHITE, specular_coefficient=0.3,
-                                                                reflection_coefficient=0.24)),
+                                                                reflection_coefficient=0.24, transparency_coefficient=0)),
                      objects.Sphere(z=1, radius=1,
-                                    material=materials.Material(diffuse_color=BLUE, reflection_coefficient=0.1)),
-                     objects.Sphere(y=2, z=1.25, radius=0.5)]
-    light_sources = [objects.DiskSource(x=4, y=0, z=5)]
+                                    material=materials.Material(diffuse_color=WHITE, reflection_coefficient=0.1)),
+                     objects.Sphere(y=2, z=1.25, radius=0.5),
+                     objects.Sphere(x=2.5,y=1.5, z=2, radius=0.5, material=materials.Material(diffuse_color=RED, transparency_coefficient=0.3))]
+    light_sources = [objects.PointSource(x=4, y=0, z=5)]
     camera = objects.Camera(x=0, y=1, z=4)
     screen = camera.screen
     Y, X = np.indices((HEIGHT, WIDTH))

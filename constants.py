@@ -13,3 +13,4 @@ SKY_BLUE = np.array([0.251, 0.624, 0.769])
 GREY = np.array([0.5, 0.5, 0.5])
 BACKGROUND_COLOR = SKY_BLUE
 reflection_depth = 1
+EPSILON = 0.001
