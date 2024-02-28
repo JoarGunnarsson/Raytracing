@@ -1,0 +1,5 @@
+import Scenes.example_1 as example_1
+import Scenes.example_2 as example_2
+
+scenes = {"example_1": example_1.scene,
+          "example_2": example_2.scene}
