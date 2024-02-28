@@ -96,17 +96,17 @@ def compute_refraction(scene, seen_objects, intersection_points, direction_vecto
         transmitted_vectors_into_surface = refract_vectors(intersection_points[relevant_indices], direction_vectors[relevant_indices], 1, obj.material.refractive_index, obj)
         t = obj.exit_point(intersection_points[relevant_indices], transmitted_vectors_into_surface)
         exit_points[relevant_indices] = intersection_points[relevant_indices] + transmitted_vectors_into_surface * (t[:, None] + EPSILON)
-        transmitted_vectors_out_of_surface[relevant_indices] = refract_vectors(exit_points[relevant_indices], transmitted_vectors_into_surface, obj.material.refractive_index, 1, obj)
-    return get_intersection_color(exit_points, direction_vectors, scene, depth, refraction_depth-1)
+        transmitted_vectors_out_of_surface[relevant_indices] = refract_vectors(exit_points[relevant_indices], transmitted_vectors_into_surface, obj.material.refractive_index, 1, obj, 1)
+    return get_intersection_color(exit_points, transmitted_vectors_out_of_surface, scene, depth, refraction_depth-1)
 
 
-def refract_vectors(starting_points, incident_vectors, n1, n2, obj):
+def refract_vectors(starting_points, incident_vectors, n1, n2, obj, dir=-1):
     # TODO: Add handling of total internal reflection. Do this by checking when the square root becomes invalid. These index should be separated, be reflected,
     # returned as a tuple
     # Also, a refracted ray should be able to be reflected on the exit region of the object.
     # Perhaps merge reflections and refractions into a single function.
     mu = n1 / n2
-    normal_vectors = - (starting_points - obj.position)
+    normal_vectors = dir * (starting_points - obj.position)
     normal_vectors = normal_vectors / np.linalg.norm(normal_vectors, axis=-1, keepdims=True)
     length_in_normal_direction = ((1 - mu ** 2 * (1 - np.sum(normal_vectors * incident_vectors, axis=-1) ** 2)) ** 0.5)[:, None]
     temp = np.sum(normal_vectors * incident_vectors, axis=-1)[:, None]

@@ -50,7 +50,7 @@ class Screen(Object):
 
 
 class Sphere(Object):
-    def __init__(self, x=4, y=0, z=0, radius=1, material=materials.Material(YELLOW)):
+    def __init__(self, x=4, y=0, z=0, radius=1.0, material=materials.Material(YELLOW)):
         super().__init__(x, y, z)
         self.radius = radius
         self.material = material
@@ -92,6 +92,7 @@ class LightSource(Object):
 class PointSource(LightSource):
     def __init__(self, x=4, y=0, z=20, intensity=15):
         super().__init__(x, y, z, intensity=intensity)
+        self.orb = Sphere(x, y, z, 0.1, material=materials.Material(diffuse_color=WHITE))
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size = intersection_points.shape[0]
@@ -103,16 +104,37 @@ class PointSource(LightSource):
         light_vectors = light_vectors / norms
         obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
-        obscured_indices = obscuring_objects != -1
-        diffuse_intensities[obscured_indices] = BLACK.copy()  # TODO: I don't think this is needed.
-        specular_intensities[obscured_indices] = BLACK.copy()  # TODO: I don't think this is needed.
-
         non_obscured_indices = obscuring_objects == -1
         distances = norms.reshape(size)
-        reshaped_distances = distances[non_obscured_indices][:, None]
 
-        diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / reshaped_distances ** 2
-        specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / reshaped_distances ** 2
+        non_obscured_distances = distances[non_obscured_indices][:, None]
+
+        diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / non_obscured_distances ** 2
+        specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / non_obscured_distances ** 2
+
+        obscured_indices = obscuring_objects != -1
+
+        exit_points, refracted_vectors = compute_refraction_for_shadows(scene_objects,
+                                                                        obscuring_objects[obscured_indices],
+                                                                        intersection_points[obscured_indices],
+                                                                        light_vectors[obscured_indices])
+
+        intersection_solutions = self.orb.intersection(exit_points, refracted_vectors)
+        secondary_obscured_indices = intersection_solutions <= 0
+
+        obscured_intensity_factor = np.zeros((size, 1))
+        for i, obj in enumerate(scene_objects):
+            relevant_indices = obscuring_objects == i
+            obscured_intensity_factor[relevant_indices] = obj.material.transparency_coefficient
+
+        temp1 = obscured_intensity_factor[obscured_indices]
+        temp1[secondary_obscured_indices] = 0
+        obscured_intensity_factor[obscured_indices] = temp1
+        obscured_distances = distances[obscured_indices][:, None]
+        diffuse_intensities[obscured_indices] = obscured_intensity_factor[obscured_indices] * (
+                    self.diffuse_color * self.intensity / obscured_distances ** 2)
+        specular_intensities[obscured_indices] = obscured_intensity_factor[obscured_indices] * (
+                    self.specular_color * self.intensity / obscured_distances ** 2)
 
         return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), [light_vectors]
 
@@ -155,8 +177,10 @@ class DiskSource(LightSource):
 
             reshaped_distances = distances[non_obscured_indices][:, None]
 
-            diffuse_intensities[non_obscured_indices] += np.clip(self.diffuse_color * self.intensity / self.n_points / reshaped_distances ** 2, 0, 1)
-            specular_intensities[non_obscured_indices] += np.clip(self.specular_color * self.intensity / self.n_points / reshaped_distances ** 2, 0, 1)
+            diffuse_intensities[non_obscured_indices] += np.clip(
+                self.diffuse_color * self.intensity / self.n_points / reshaped_distances ** 2, 0, 1)
+            specular_intensities[non_obscured_indices] += np.clip(
+                self.specular_color * self.intensity / self.n_points / reshaped_distances ** 2, 0, 1)
 
             light_vectors_matrix.append(light_vectors)
 
@@ -213,7 +237,7 @@ class DirectionalDiskSource(DiskSource):
         x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
         y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
         z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
-        distance_from_normal_axis = (x ** 2 + y ** 2)**0.5
+        distance_from_normal_axis = (x ** 2 + y ** 2) ** 0.5
 
         allowed_distance = self.radius + np.tan(self.angle) * np.abs(z)
         distance_to_edge_off_fall_off_region = self.radius + np.tan(self.angle + self.fall_off_angle) * np.abs(z)
@@ -234,7 +258,9 @@ class DirectionalDiskSource(DiskSource):
             light_vectors = random_light_point - intersection_points
             norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
             light_vectors = light_vectors / norms
-            obscuring_objects, _ = find_closest_intersected_object(visible_intersection_points, light_vectors[inside_light_beam_indices], scene_objects)
+            obscuring_objects, _ = find_closest_intersected_object(visible_intersection_points,
+                                                                   light_vectors[inside_light_beam_indices],
+                                                                   scene_objects)
 
             non_obscured_indices = obscuring_objects == -1
 
@@ -365,3 +391,37 @@ def cubic_easing(x, a, d):
 
 def exponential_easing(x, a, d):
     return 1 - 1 / (1 + np.exp(-10 / d * (x - a - d / 2)))
+
+
+def compute_refraction_for_shadows(scene_objects, seen_objects, intersection_points, direction_vectors):
+    """Computes the color for the refracted rays. Function currently assumes the same index of refraction."""
+    # TODO: This refraction depth should be necessary, but refraction should also stop when hitting the sky.
+    exit_points = np.zeros(intersection_points.shape)
+    transmitted_vectors_out_of_surface = np.zeros(intersection_points.shape)
+    for i, obj in enumerate(scene_objects):
+        relevant_indices = seen_objects == i
+        transmitted_vectors_into_surface = refract_vectors(intersection_points[relevant_indices],
+                                                           direction_vectors[relevant_indices], 1,
+                                                           obj.material.refractive_index, obj)
+        t = obj.exit_point(intersection_points[relevant_indices], transmitted_vectors_into_surface)
+        exit_points[relevant_indices] = intersection_points[relevant_indices] + transmitted_vectors_into_surface * (
+                    t[:, None] + EPSILON)
+        transmitted_vectors_out_of_surface[relevant_indices] = refract_vectors(exit_points[relevant_indices],
+                                                                               transmitted_vectors_into_surface,
+                                                                               obj.material.refractive_index, 1, obj, 1)
+    return exit_points, transmitted_vectors_out_of_surface
+
+
+def refract_vectors(starting_points, incident_vectors, n1, n2, obj, dir=-1):
+    # TODO: Add handling of total internal reflection. Do this by checking when the square root becomes invalid. These index should be separated, be reflected,
+    # returned as a tuple
+    # Also, a refracted ray should be able to be reflected on the exit region of the object.
+    # Perhaps merge reflections and refractions into a single function.
+    mu = n1 / n2
+    normal_vectors = dir * (starting_points - obj.position)
+    normal_vectors = normal_vectors / np.linalg.norm(normal_vectors, axis=-1, keepdims=True)
+    length_in_normal_direction = ((1 - mu ** 2 * (1 - np.sum(normal_vectors * incident_vectors, axis=-1) ** 2)) ** 0.5)[
+                                 :, None]
+    temp = np.sum(normal_vectors * incident_vectors, axis=-1)[:, None]
+    transmitted_vectors = length_in_normal_direction * normal_vectors + mu * (incident_vectors - temp * normal_vectors)
+    return transmitted_vectors

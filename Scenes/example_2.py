@@ -9,8 +9,11 @@ scene_objects = [objects.Sphere(z=-1000000, radius=1000000,
                                 material=materials.Material(diffuse_color=WHITE, reflection_coefficient=0.1)),
                  objects.Sphere(y=2, z=1.25, radius=0.5),
                  objects.Sphere(x=2.5, y=1.5, z=2, radius=0.5,
-                                material=materials.Material(diffuse_color=RED, transparency_coefficient=0.9))]
-light_sources = [objects.PointSource(x=4, y=0, z=1000, intensity=1000**2)]
+                                material=materials.Material(diffuse_color=RED, transparency_coefficient=0.9, refractive_index=1.01)),
+                objects.Sphere(x=2.5, y=1.5, z=4, radius=0.5,
+                                material=materials.Material(diffuse_color=RED, transparency_coefficient=0.9, refractive_index=1.01))
+                 ]
+light_sources = [objects.PointSource(x=4, y=0, z=10, intensity=10**2)]
 camera = objects.Camera(x=0, y=1, z=4)
 screen = camera.screen
 
