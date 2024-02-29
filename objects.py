@@ -102,17 +102,17 @@ class PointSource(LightSource):
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
-        obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
+        obscuring_objects, distances_to_intersections = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
-        non_obscured_indices = obscuring_objects == -1
+        obscured_indices = np.logical_and(obscuring_objects != -1, distances_to_intersections.flatten() < norms.flatten())
+        non_obscured_indices = np.logical_not(obscured_indices)
+
         distances = norms.reshape(size)
 
         non_obscured_distances = distances[non_obscured_indices][:, None]
 
         diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / non_obscured_distances ** 2
         specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / non_obscured_distances ** 2
-
-        obscured_indices = obscuring_objects != -1
 
         exit_points, refracted_vectors = compute_refraction_for_shadows(scene_objects,
                                                                         obscuring_objects[obscured_indices],
@@ -122,11 +122,12 @@ class PointSource(LightSource):
         intersection_solutions = self.orb.intersection(exit_points, refracted_vectors)
         secondary_obscured_indices = intersection_solutions <= 0
 
-        obscured_intensity_factor = np.zeros((size, 1))
+        obscured_intensity_factor = np.zeros((size, 3))
         for i, obj in enumerate(scene_objects):
             relevant_indices = obscuring_objects == i
-            obscured_intensity_factor[relevant_indices] = obj.material.transparency_coefficient
+            obscured_intensity_factor[relevant_indices] = obj.material.transparency_coefficient * obj.material.diffuse_color
 
+        # TODO: Do this part recursively or something similar.
         temp1 = obscured_intensity_factor[obscured_indices]
         temp1[secondary_obscured_indices] = 0
         obscured_intensity_factor[obscured_indices] = temp1
