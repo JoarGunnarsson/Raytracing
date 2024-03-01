@@ -1,6 +1,6 @@
 import numpy as np
-WIDTH = 100
-HEIGHT = 100
+WIDTH = 1000
+HEIGHT = 1000
 SIZE = HEIGHT * WIDTH
 image_directory = "Images/"
 WHITE = np.array([1.0, 1.0, 1.0])
@@ -12,6 +12,7 @@ YELLOW = np.array([1.0, 1.0, 0.0])
 SKY_BLUE = np.array([0.251, 0.624, 0.769])
 GREY = np.array([0.5, 0.5, 0.5])
 BACKGROUND_COLOR = SKY_BLUE
-reflection_depth = 2
+MAX_REFLECTION_DEPTH = 1
+MAX_REFRACTION_DEPTH = 5
 EPSILON = 0.001
 AIR_REFRACTIVE_INDEX = 1

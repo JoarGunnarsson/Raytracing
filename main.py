@@ -23,7 +23,7 @@ def example_3():
 
 def main():
     start = time.time()
-    image = example_3()
+    image = example_1()
     plt.imsave(image_directory + "result.png", image)
     print(f"The program took {time.time() - start} seconds to run.")
 

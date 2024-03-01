@@ -104,7 +104,7 @@ class PointSource(LightSource):
         light_vectors = light_vectors / norms
         obscuring_objects, distances_to_intersections = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
 
-        obscured_indices = np.logical_and(obscuring_objects != -1, distances_to_intersections.flatten() < norms.flatten())
+        obscured_indices = np.logical_and(obscuring_objects != -1, distances_to_intersections.reshape(-1) < norms.reshape(-1))
         non_obscured_indices = np.logical_not(obscured_indices)
 
         distances = norms.reshape(size)

@@ -2,7 +2,7 @@ from constants import *
 
 
 class Material:
-    def __init__(self, diffuse_color=GREEN, specular_color=WHITE, diffusion_coefficient=0.7, specular_coefficient=0.5,
+    def __init__(self, diffuse_color=YELLOW, specular_color=WHITE, diffusion_coefficient=0.7, specular_coefficient=0.5,
                  shininess=30, reflection_coefficient=0, transparency_coefficient=0, refractive_index=1.5):
         self.diffuse_color = diffuse_color
         self.specular_color = specular_color
