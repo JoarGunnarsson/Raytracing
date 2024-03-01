@@ -113,7 +113,7 @@ class PointSource(LightSource):
 
         diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / non_obscured_distances ** 2
         specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / non_obscured_distances ** 2
-
+        """
         exit_points, refracted_vectors = compute_refraction_for_shadows(scene_objects,
                                                                         obscuring_objects[obscured_indices],
                                                                         intersection_points[obscured_indices],
@@ -136,7 +136,7 @@ class PointSource(LightSource):
                     self.diffuse_color * self.intensity / obscured_distances ** 2)
         specular_intensities[obscured_indices] = obscured_intensity_factor[obscured_indices] * (
                     self.specular_color * self.intensity / obscured_distances ** 2)
-
+        """
         return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), [light_vectors]
 
 
