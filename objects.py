@@ -35,7 +35,7 @@ class Screen(Object):
         self.height = width * HEIGHT / WIDTH
         self.pixels_x = WIDTH
         self.pixels_y = HEIGHT
-        self.image = np.zeros((HEIGHT, WIDTH, 3))
+        self.image = np.zeros((HEIGHT, WIDTH, 3), dtype=float)
         self.normal_vector = normal_vector
         self.y_vector = y_vector
         self.x_vector = np.cross(self.normal_vector, self.y_vector)
@@ -65,16 +65,6 @@ class Sphere(Object):
         solutions = solve_quadratic(B, C)
         return solutions
 
-    def exit_point(self, starting_positions, direction_vectors):
-        # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
-        # computed etc.
-        dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
-        B = 2 * (dot_product - np.dot(direction_vectors, self.position))
-        difference_in_positions = self.position - starting_positions
-        C = np.sum(difference_in_positions * difference_in_positions, axis=-1) - self.radius ** 2
-        solutions = solve_quadratic_2(B, C)
-        return solutions
-
 
 class LightSource(Object):
     def __init__(self, x=4, y=0, z=1000, intensity=15):
@@ -96,8 +86,8 @@ class PointSource(LightSource):
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size = intersection_points.shape[0]
-        diffuse_intensities = np.zeros((size, 3))
-        specular_intensities = np.zeros((size, 3))
+        diffuse_intensities = np.zeros((size, 3), dtype=float)
+        specular_intensities = np.zeros((size, 3), dtype=float)
 
         light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
@@ -149,8 +139,8 @@ class DiskSource(LightSource):
     def compute_light_intensity(self, intersection_points, scene_objects):
         size = intersection_points.shape[0]
 
-        diffuse_intensities = np.zeros((size, 3))
-        specular_intensities = np.zeros((size, 3))
+        diffuse_intensities = np.zeros((size, 3), dtype=float)
+        specular_intensities = np.zeros((size, 3), dtype=float)
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
             perpendicular_vector = np.array([0.0, 1.0, 0.0])
@@ -207,7 +197,7 @@ class DirectionalDiskSource(DiskSource):
                   "Use DiskSource instead.")
 
     def ease_fall_off_beam(self, x, a, d):
-        eased_matrix = np.ones(x.shape)
+        eased_matrix = np.ones(x.shape, dtype=float)
         valid_indices = d != 0
         if self.easing_mode == EasingModes.LINEAR:
             eased_matrix[valid_indices] = linear_easing(x[valid_indices], a[valid_indices], d[valid_indices])
@@ -225,7 +215,7 @@ class DirectionalDiskSource(DiskSource):
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size, _ = intersection_points.shape
-        total_intensities = np.zeros(size)
+        total_intensities = np.zeros(size, dtype=float)
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
             perpendicular_vector = np.array([0.0, 1.0, 0.0])
@@ -290,7 +280,7 @@ class DirectionalDiskSource(DiskSource):
 
 def solve_quadratic(B, C):
     """Solves a special case quadratic equation with a = 1."""
-    solutions = -np.ones(B.shape)
+    solutions = -np.ones(B.shape, dtype=float)
 
     discriminants = B ** 2 - 4 * C
     real_solution_indices = 0 <= discriminants
@@ -309,33 +299,6 @@ def solve_quadratic(B, C):
 
     min_ok_indices = 0 < minimum_solutions
     valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
-
-    solutions[real_solution_indices] = valid_solutions
-    return solutions
-
-
-def solve_quadratic_2(B, C):
-    """Solves a special case quadratic equation with a = 1. Returns the maximum solution"""
-    solutions = -np.ones(B.shape)
-
-    discriminants = B ** 2 - 4 * C
-    real_solution_indices = 0 <= discriminants
-
-    root_discriminant = discriminants[real_solution_indices] ** 0.5
-    B = B[real_solution_indices]
-    x1 = -B / 2 + root_discriminant / 2
-    x2 = -B / 2 - root_discriminant / 2
-
-    minimum_solutions = np.minimum(x1, x2)
-    maximum_solutions = np.maximum(x1, x2)
-
-    valid_solutions = solutions[real_solution_indices]
-
-    min_ok_indices = 0 < minimum_solutions
-    valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
-
-    max_ok_indices = 0 < maximum_solutions
-    valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
     solutions[real_solution_indices] = valid_solutions
     return solutions
@@ -364,7 +327,7 @@ def quadratic_easing(x, a, d):
     after_easing_stops_indices = x > a + d
     easing_indices = np.logical_not(np.logical_or(before_easing_starts_indices, after_easing_stops_indices))
 
-    result = np.zeros(x.shape)
+    result = np.zeros(x.shape, dtype=float)
 
     x = x[easing_indices]
     a = a[easing_indices]
@@ -379,7 +342,7 @@ def cubic_easing(x, a, d):
     before_easing_starts_indices = x < a
     after_easing_stops_indices = x > a + d
     easing_indices = np.logical_not(np.logical_or(before_easing_starts_indices, after_easing_stops_indices))
-    result = np.zeros(x.shape)
+    result = np.zeros(x.shape, dtype=float)
     x = x[easing_indices]
     a = a[easing_indices]
     d = d[easing_indices]
@@ -392,37 +355,3 @@ def cubic_easing(x, a, d):
 
 def exponential_easing(x, a, d):
     return 1 - 1 / (1 + np.exp(-10 / d * (x - a - d / 2)))
-
-
-def compute_refraction_for_shadows(scene_objects, seen_objects, intersection_points, direction_vectors):
-    """Computes the color for the refracted rays. Function currently assumes the same index of refraction."""
-    # TODO: This refraction depth should be necessary, but refraction should also stop when hitting the sky.
-    exit_points = np.zeros(intersection_points.shape)
-    transmitted_vectors_out_of_surface = np.zeros(intersection_points.shape)
-    for i, obj in enumerate(scene_objects):
-        relevant_indices = seen_objects == i
-        transmitted_vectors_into_surface = refract_vectors(intersection_points[relevant_indices],
-                                                           direction_vectors[relevant_indices], 1,
-                                                           obj.material.refractive_index, obj)
-        t = obj.exit_point(intersection_points[relevant_indices], transmitted_vectors_into_surface)
-        exit_points[relevant_indices] = intersection_points[relevant_indices] + transmitted_vectors_into_surface * (
-                    t[:, None] + EPSILON)
-        transmitted_vectors_out_of_surface[relevant_indices] = refract_vectors(exit_points[relevant_indices],
-                                                                               transmitted_vectors_into_surface,
-                                                                               obj.material.refractive_index, 1, obj, 1)
-    return exit_points, transmitted_vectors_out_of_surface
-
-
-def refract_vectors(starting_points, incident_vectors, n1, n2, obj, dir=-1):
-    # TODO: Add handling of total internal reflection. Do this by checking when the square root becomes invalid. These index should be separated, be reflected,
-    # returned as a tuple
-    # Also, a refracted ray should be able to be reflected on the exit region of the object.
-    # Perhaps merge reflections and refractions into a single function.
-    mu = n1 / n2
-    normal_vectors = dir * (starting_points - obj.position)
-    normal_vectors = normal_vectors / np.linalg.norm(normal_vectors, axis=-1, keepdims=True)
-    length_in_normal_direction = ((1 - mu ** 2 * (1 - np.sum(normal_vectors * incident_vectors, axis=-1) ** 2)) ** 0.5)[
-                                 :, None]
-    temp = np.sum(normal_vectors * incident_vectors, axis=-1)[:, None]
-    transmitted_vectors = length_in_normal_direction * normal_vectors + mu * (incident_vectors - temp * normal_vectors)
-    return transmitted_vectors
