@@ -14,11 +14,13 @@ class Object:
 
 class Camera(Object):
     def __init__(self, x=0, y=0, z=0, viewing_direction=None):
+        super().__init__(x, y, z)
         if viewing_direction is None:
             viewing_direction = np.array([1 / 2 ** 0.5, 0, -1 / 2 ** 0.5])
-        super().__init__(x, y, z)
+        viewing_direction /= np.linalg.norm(viewing_direction)
         self.viewing_direction = viewing_direction
         self.y_vector = np.array([0.1, 0, 0.97])
+        self.y_vector /= np.linalg.norm(self.y_vector)
         if np.dot(viewing_direction, self.y_vector) != 0:
             orthogonal_vector = np.cross(viewing_direction, self.y_vector)
             self.y_vector = np.cross(orthogonal_vector, viewing_direction)
@@ -33,18 +35,18 @@ class Screen(Object):
         super().__init__(x, y, z)
         self.width = width
         self.height = width * HEIGHT / WIDTH
-        self.pixels_x = WIDTH
-        self.pixels_y = HEIGHT
+        self.pixels_x = float(WIDTH)
+        self.pixels_y = float(HEIGHT)
         self.image = np.zeros((HEIGHT, WIDTH, 3), dtype=float)
         self.normal_vector = normal_vector
         self.y_vector = y_vector
         self.x_vector = np.cross(self.normal_vector, self.y_vector)
 
     def index_to_position(self, X, Y):
-        X = X * self.width / self.pixels_x - self.width / 2
+        X = X * float(self.width) / self.pixels_x - float(self.width) / 2
         X = X * self.x_vector
 
-        Y = (self.pixels_y - Y) * self.height / self.pixels_y - self.height / 2
+        Y = (self.pixels_y - Y) * float(self.height) / self.pixels_y - float(self.height) / 2
         Y = Y * self.y_vector
         return X + Y + self.position
 
