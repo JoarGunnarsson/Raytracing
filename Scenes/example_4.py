@@ -12,7 +12,7 @@ scene_objects = [objects.Sphere(z=-10000000, radius=10000000,
                                                             smoothness=1)),
                  objects.Sphere(x=15, y=0, z=2, radius=4,
                                 material=materials.Material(diffuse_color=RED,
-                                                            smoothness=1)),
+                                                            smoothness=0.6)),
 
                  ]
 light_sources = [objects.PointSource(x=4, y=0, z=10, intensity=10 ** 2)]
