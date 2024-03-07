@@ -67,7 +67,7 @@ class Sphere(Object):
 
 
 class LightSource(Object):
-    def __init__(self, x=4, y=0, z=1000, intensity=15):
+    def __init__(self, x=4.0, y=0.0, z=1000.0, intensity=1.05):
         super().__init__(x, y, z)
         self.intensity = intensity
         self.normal_vector = np.array([0.0, 0.0, -1.0])
@@ -80,16 +80,20 @@ class LightSource(Object):
 
 
 class PointSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, intensity=15):
+    def __init__(self, x=4.0, y=0.0, z=20.0, intensity=15.0):
         super().__init__(x, y, z, intensity=intensity)
         self.orb = Sphere(x, y, z, 0.1, material=materials.Material(diffuse_color=WHITE))
 
     def compute_light_intensity(self, intersection_points, scene_objects):
+        light_vectors = self.position - intersection_points
+
+        return self.intensities_from_vectors(intersection_points, light_vectors, scene_objects)
+
+    def intensities_from_vectors(self, intersection_points, light_vectors, scene_objects):
         size = intersection_points.shape[0]
         diffuse_intensities = np.zeros((size, 3), dtype=float)
         specular_intensities = np.zeros((size, 3), dtype=float)
 
-        light_vectors = self.position - intersection_points
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
         obscuring_objects, distances_to_intersections = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
@@ -103,44 +107,20 @@ class PointSource(LightSource):
 
         diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / non_obscured_distances ** 2
         specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / non_obscured_distances ** 2
-        """
-        exit_points, refracted_vectors = compute_refraction_for_shadows(scene_objects,
-                                                                        obscuring_objects[obscured_indices],
-                                                                        intersection_points[obscured_indices],
-                                                                        light_vectors[obscured_indices])
-
-        intersection_solutions = self.orb.intersection(exit_points, refracted_vectors)
-        secondary_obscured_indices = intersection_solutions <= 0
-
-        obscured_intensity_factor = np.zeros((size, 3))
-        for i, obj in enumerate(scene_objects):
-            relevant_indices = obscuring_objects == i
-            obscured_intensity_factor[relevant_indices] = obj.material.transparency_coefficient * obj.material.diffuse_color
-
-        # TODO: Do this part recursively or something similar.
-        temp1 = obscured_intensity_factor[obscured_indices]
-        temp1[secondary_obscured_indices] = 0
-        obscured_intensity_factor[obscured_indices] = temp1
-        obscured_distances = distances[obscured_indices][:, None]
-        diffuse_intensities[obscured_indices] = obscured_intensity_factor[obscured_indices] * (
-                    self.diffuse_color * self.intensity / obscured_distances ** 2)
-        specular_intensities[obscured_indices] = obscured_intensity_factor[obscured_indices] * (
-                    self.specular_color * self.intensity / obscured_distances ** 2)
-        """
         return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), [light_vectors]
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15):
+    def __init__(self, x=4.0, y=0.0, z=20.0, radius=3.0, intensity=15.0):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
         self.n_points = 30
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size = intersection_points.shape[0]
+        full_size = size * self.n_points
 
-        diffuse_intensities = np.zeros((size, 3), dtype=float)
-        specular_intensities = np.zeros((size, 3), dtype=float)
+        extended_intersection_points = np.tile(intersection_points, (self.n_points, 1))
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
             perpendicular_vector = np.array([0.0, 1.0, 0.0])
@@ -150,30 +130,26 @@ class DiskSource(LightSource):
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
         y_hat = np.cross(self.normal_vector, x_hat)
 
-        light_vectors_matrix = []
-        for i in range(self.n_points):
-            theta = np.random.random(size) * 2 * math.pi
-            d = np.random.random(size) ** 0.5 * self.radius
+        theta = np.random.random(full_size) * 2 * math.pi
+        d = np.random.random(full_size) ** 0.5 * self.radius
 
-            random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
-            random_light_point = self.position + random_point_local
-            light_vectors = random_light_point - intersection_points
-            norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
-            light_vectors = light_vectors / norms
-            obscuring_objects, _ = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
+        random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
+        random_light_point = self.position + random_point_local
+        light_vectors = random_light_point - extended_intersection_points
 
-            non_obscured_indices = obscuring_objects == -1
+        point_source = PointSource(intensity=self.intensity/self.n_points)
+        diffuse_intensities, specular_intensities, light_vectors_matrix = point_source.intensities_from_vectors(extended_intersection_points, light_vectors, scene_objects)
 
-            distances = norms.reshape(size)
+        diffuse_intensities = diffuse_intensities.reshape((self.n_points, size, 3))
+        diffuse_intensities = np.sum(diffuse_intensities, axis=0)
 
-            reshaped_distances = distances[non_obscured_indices][:, None]
+        specular_intensities = specular_intensities.reshape((self.n_points, size, 3))
+        specular_intensities = np.sum(specular_intensities, axis=0)
 
-            diffuse_intensities[non_obscured_indices] += np.clip(
-                self.diffuse_color * self.intensity / self.n_points / reshaped_distances ** 2, 0, 1)
-            specular_intensities[non_obscured_indices] += np.clip(
-                self.specular_color * self.intensity / self.n_points / reshaped_distances ** 2, 0, 1)
+        light_vectors = light_vectors_matrix[0]
+        light_vectors = light_vectors.reshape((self.n_points, size, 3))
 
-            light_vectors_matrix.append(light_vectors)
+        light_vectors_matrix = [light_vectors[i, :, :] for i in range(light_vectors.shape[0])]
 
         return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), light_vectors_matrix
 

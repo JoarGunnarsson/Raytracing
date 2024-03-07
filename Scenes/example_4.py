@@ -15,7 +15,7 @@ scene_objects = [objects.Sphere(z=-10000000, radius=10000000,
                                                             smoothness=0.6)),
 
                  ]
-light_sources = [objects.PointSource(x=4, y=0, z=10, intensity=10 ** 2)]
+light_sources = [objects.DiskSource(x=4, y=0, z=10, intensity=10 ** 2)]
 camera = objects.Camera(x=-4, y=1, z=1, viewing_direction=np.array([1.0, 0.0, -0.1]))
 screen = camera.screen
 
