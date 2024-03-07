@@ -57,14 +57,12 @@ class Sphere(Object):
         self.radius = radius
         self.material = material
 
-    def intersection(self, starting_positions, direction_vectors):
-        # TODO: Input vectors can be inf and nan, if we are checking a reflection... Perhaps this does not need to be
-        # computed etc.
+    def intersection(self, starting_positions, direction_vectors, mode="closest"):
         dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
         B = 2 * (dot_product - np.dot(direction_vectors, self.position))
         difference_in_positions = self.position - starting_positions
         C = np.sum(difference_in_positions * difference_in_positions, axis=-1) - self.radius ** 2
-        solutions = solve_quadratic(B, C)
+        solutions = solve_quadratic(B, C, mode)
         return solutions
 
 
@@ -280,7 +278,7 @@ class DirectionalDiskSource(DiskSource):
         return total_intensities, light_vectors_matrix
 
 
-def solve_quadratic(B, C):
+def solve_quadratic(B, C, mode):
     """Solves a special case quadratic equation with a = 1."""
     solutions = -np.ones(B.shape, dtype=float)
 
@@ -294,13 +292,19 @@ def solve_quadratic(B, C):
 
     minimum_solutions = np.minimum(x1, x2)
     maximum_solutions = np.maximum(x1, x2)
-
     valid_solutions = solutions[real_solution_indices]
-    max_ok_indices = 0 < maximum_solutions
-    valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
+    if mode == "closest":
+        max_ok_indices = 0 < maximum_solutions
+        valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
-    min_ok_indices = 0 < minimum_solutions
-    valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+        min_ok_indices = 0 < minimum_solutions
+        valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+    else:
+        min_ok_indices = 0 < minimum_solutions
+        valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
+
+        max_ok_indices = 0 < maximum_solutions
+        valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
     solutions[real_solution_indices] = valid_solutions
     return solutions

@@ -21,11 +21,14 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
     # Returns: The color corresponding to the vectors.
     initial_size = starting_points.shape[0]
 
-    # 0: Define color arrays.
+    # 0: Define color array, and return early if the number of vectors is small.
     combined_colors = np.zeros(starting_points.shape, dtype=float)
+    if initial_size < SMALL_NUM:
+        return combined_colors + BACKGROUND_COLOR
 
-    # 1: Check closes object for intersection.
+    # 1: Check closes object the ray intersects.
     seen_objects, distances_to_intersection = objects.find_closest_intersected_object(starting_points, direction_vectors, scene.objects)
+
     no_object_intersection_indices = seen_objects == -1
     object_intersection_indices = seen_objects != -1
 
@@ -40,13 +43,9 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
     object_intersection_size = seen_objects.shape[0]
     surface_colors = np.zeros((object_intersection_size, 3), dtype=float)
     refraction_colors = np.zeros((object_intersection_size, 3), dtype=float)
-    if refraction_depth == 0:
-        refraction_colors = np.ones((object_intersection_size, 3), dtype=float) * RED ###
-        surface_colors = np.ones((object_intersection_size, 3), dtype=float) * RED
-
     reflection_colors = np.zeros((object_intersection_size, 3), dtype=float)
 
-    # 2: If no intersecting object, set the color to background color.
+    # 2: If the ray does not intersect an object, set the color to the background color.
     combined_colors[no_object_intersection_indices] = BACKGROUND_COLOR.copy()
 
     # 3: Compute normal vectors
@@ -96,28 +95,39 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
     R[total_reflection_indices] = 1
     direction_vectors_to_be_reflected = direction_vectors[total_reflection_indices]
 
-    total_reflection_vectors = reflect_vectors(direction_vectors_to_be_reflected, -refraction_normal_vectors[total_reflection_indices])
-
     # 7: Recursively compute the colors for these vectors.
     if refraction_depth != 0:
-        # TODO: An issue with the following line. Random noise fixes it, but I don't know why.
         adjusted_intersections = intersection_points[transmitted_indices] + 2 * EPSILON * refraction_normal_vectors[transmitted_indices]
         refraction_colors[transmitted_indices] = recursive_function(scene, adjusted_intersections, transmitted_vectors, reflection_depth, refraction_depth-1)
-        refraction_colors[total_reflection_indices] = recursive_function(scene, intersection_points[total_reflection_indices], total_reflection_vectors, reflection_depth, refraction_depth-1)
+        for i, obj in enumerate(scene.objects):
+            intersects_this_object_indices = seen_objects == i
+            outside_this_object_indices = np.logical_and(np.logical_not(inside_an_object_indices), intersects_this_object_indices)
+            transmitted_into_this_object_indices = np.logical_and(outside_this_object_indices, transmitted_indices)
+            relevant_intersections = intersection_points[transmitted_into_this_object_indices]
+            rel_ind = seen_objects[transmitted_indices] == i
+            ind = np.logical_and(rel_ind, np.logical_not(inside_an_object_indices[transmitted_indices]))
+            relevant_transmitted_vectors = transmitted_vectors[ind]
+            distance_travelled_through_object = obj.intersection(relevant_intersections, relevant_transmitted_vectors, "furthest")
+            attenuation_factor = np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
+            refraction_colors[transmitted_into_this_object_indices] *= attenuation_factor
 
-    # 8: If a ray intersects an object, compute the reflected vectors.
-    reflection_vectors = reflect_vectors(direction_vectors, -refraction_normal_vectors)
+    if refraction_depth != 0 and reflection_depth != 0:
+        if intersection_points[total_reflection_indices].shape[0] > 0:
+            total_reflection_vectors = reflect_vectors(direction_vectors_to_be_reflected,
+                                                       -refraction_normal_vectors[total_reflection_indices])
+            refraction_colors[total_reflection_indices] = recursive_function(scene, intersection_points[total_reflection_indices], total_reflection_vectors, reflection_depth-1, refraction_depth-1)
 
-    # 9: Recursively compute the color for these vectors.
     if reflection_depth != 0:
+        # 8: Compute the reflected vectors, and recursively compute the color for them.
+        reflection_vectors = reflect_vectors(direction_vectors, -refraction_normal_vectors)
         reflection_colors = recursive_function(scene, intersection_points, reflection_vectors, reflection_depth-1, refraction_depth)
 
-    # 3: Otherwise, compute the surface color of the object. This is summed over all light sources
+    # 10: Compute the surface color of the object.
     for light_source in scene.light_sources:
         diffuse_intensities, specular_intensities, light_vector_matrix = light_source.compute_light_intensity(intersection_points, scene.objects)
         surface_colors += compute_surface_color(scene, seen_objects, direction_vectors, normal_vectors, diffuse_intensities, specular_intensities, light_vector_matrix)
 
-    # 10: Combine all of these colors together depending on the coefficients of the intersected object.
+    # 11: Combine all of these colors together.
     for i, obj in enumerate(scene.objects):
         intersects_this_object_indices = seen_objects == i
         max_reflection = obj.material.smoothness
@@ -129,28 +139,30 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
 
     combined_colors[object_intersection_indices] = surface_colors + refraction_colors + reflection_colors
 
-    temp = combined_colors[object_intersection_indices]
-    temp[inside_an_object_indices] = surface_colors[inside_an_object_indices] + refraction_colors[inside_an_object_indices]
-    combined_colors[object_intersection_indices] = temp
     return np.clip(combined_colors, 0, 1)
 
 
 def fresnel_multiplier(incident_vectors, transmitted_vectors, normal_vectors, n1, n2):
-    cos_theta_incident = np.sum(incident_vectors * normal_vectors, axis=-1)
-    R = schlick_approximation(cos_theta_incident, n1, n2)
-    cos_theta_transmitted = np.sum(transmitted_vectors * normal_vectors, axis=-1)
-    R[n1 > n2] = schlick_approximation(cos_theta_transmitted, n1, n2)[n1 > n2]
+    R_0 = ((n1 - n2) / (n1 + n2)) ** 2
+    n2_larger_indices = n2 >= n1
+    n1_larger_indices = np.logical_not(n2_larger_indices)
+    R = np.zeros(incident_vectors.shape[0])
+
+    cos_theta_incident = np.sum(incident_vectors[n2_larger_indices] * normal_vectors[n2_larger_indices], axis=-1)
+    R[n2_larger_indices] = schlick_approximation(R_0[n2_larger_indices], cos_theta_incident)
+
+    cos_theta_transmitted = np.sum(transmitted_vectors[n1_larger_indices] * normal_vectors[n1_larger_indices], axis=-1)
+    R[n1_larger_indices] = schlick_approximation(R_0[n1_larger_indices], cos_theta_transmitted)
     return R
 
 
-def schlick_approximation(cos_theta, n1, n2):
-    R_0 = ((n1 - n2) / (n1 + n2)) ** 2
+def schlick_approximation(R_0, cos_theta):
     R = R_0 + (1 - R_0) * (1 - cos_theta) ** 5
     return R
 
 
 def reflect_vectors(direction_vectors, normal_vectors):
-    normal_dot_direction_vectors = np.sum(normal_vectors * direction_vectors, axis=-1)[:, None]
+    normal_dot_direction_vectors = np.sum(normal_vectors * direction_vectors, axis=-1, keepdims=True)
     reflection_vectors = direction_vectors - 2 * normal_vectors * normal_dot_direction_vectors
     return reflection_vectors
 
@@ -165,7 +177,7 @@ def refract_vectors(normal_vectors, incident_vectors, n1, n2):
     incident_vectors = incident_vectors[transmitted_indices]
 
     length_in_normal_direction = (length_in_normal_direction_squared[transmitted_indices] ** 0.5)[:, None]
-    cos_incident_angle = np.sum(normal_vectors * incident_vectors, axis=-1)[:, None]
+    cos_incident_angle = np.sum(normal_vectors * incident_vectors, axis=-1, keepdims=True)
     perpendicular_vectors = incident_vectors - cos_incident_angle * normal_vectors
 
     transmitted_vectors = length_in_normal_direction * normal_vectors + mu[:, None] * perpendicular_vectors
@@ -176,17 +188,17 @@ def compute_surface_color(scene, seen_objects, direction_vectors, normal_vectors
     surface_color = np.zeros(direction_vectors.shape, dtype=float)
 
     for k, light_vec in enumerate(light_vectors_matrix):
-        normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1)
-        reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors[:, None] + light_vec
-        reflection_dot_direction_vectors = np.abs(np.sum(reflection_vectors * direction_vectors, axis=-1))
+        normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1, keepdims=True)
+        reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors + light_vec
+        reflection_dot_direction_vectors = np.abs(np.sum(reflection_vectors * direction_vectors, axis=-1, keepdims=True))
         for i, obj in enumerate(scene.objects):
             relevant_indices = seen_objects == i
             diffusive_color = get_diffusive_color(obj)
             specular_color = get_specular_color(obj)
             shininess = get_shininess(obj)
 
-            I_diffuse = np.clip(diffusive_color * normal_dot_light_vectors[relevant_indices][:, None], 0, 1)
-            I_specular = np.clip(specular_color * reflection_dot_direction_vectors[relevant_indices][:, None] ** shininess, 0, 1)
+            I_diffuse = np.clip(diffusive_color * normal_dot_light_vectors[relevant_indices], 0, 1)
+            I_specular = np.clip(specular_color * reflection_dot_direction_vectors[relevant_indices] ** shininess, 0, 1)
             color = (I_diffuse * diffuse_intensities[relevant_indices] + I_specular * specular_intensities[relevant_indices]) / len(light_vectors_matrix)
 
             surface_color[relevant_indices] += np.clip(color, 0, 1)
@@ -203,7 +215,7 @@ def get_position(obj):
 def get_diffusive_color(obj):
     if obj is None:
         return BLACK
-    return obj.material.diffuse_color* obj.material.diffuse_coefficient
+    return obj.material.diffuse_color * obj.material.diffuse_coefficient
 
 
 def get_specular_color(obj):
