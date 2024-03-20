@@ -114,11 +114,10 @@ class DiskSource(LightSource):
     def __init__(self, x=4.0, y=0.0, z=20.0, radius=3.0, intensity=15.0):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
-        self.n_points = 30
+        self.n_points = 100
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size = intersection_points.shape[0]
-        full_size = size * self.n_points
 
         extended_intersection_points = np.tile(intersection_points, (self.n_points, 1))
 
@@ -130,14 +129,14 @@ class DiskSource(LightSource):
         x_hat = np.cross(self.normal_vector, perpendicular_vector)
         y_hat = np.cross(self.normal_vector, x_hat)
 
-        theta = np.random.random(full_size) * 2 * math.pi
-        d = np.random.random(full_size) ** 0.5 * self.radius
+        theta = np.random.random((self.n_points * size)) * 2 * math.pi
+        d = np.random.random((self.n_points * size)) ** 0.5 * self.radius
 
         random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
         random_light_point = self.position + random_point_local
         light_vectors = random_light_point - extended_intersection_points
 
-        point_source = PointSource(intensity=self.intensity/self.n_points)
+        point_source = PointSource(intensity=self.intensity / self.n_points)
         diffuse_intensities, specular_intensities, light_vectors_matrix = point_source.intensities_from_vectors(extended_intersection_points, light_vectors, scene_objects)
 
         diffuse_intensities = diffuse_intensities.reshape((self.n_points, size, 3))
@@ -255,7 +254,7 @@ class DirectionalDiskSource(DiskSource):
 
 
 def solve_quadratic(B, C, mode):
-    """Solves a special case quadratic equation with a = 1."""
+    """Solves a special case quadratic equation with a = 1. Returns one solution, determined by 'mode'."""
     solutions = -np.ones(B.shape, dtype=float)
 
     discriminants = B ** 2 - 4 * C
