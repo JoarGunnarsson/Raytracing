@@ -203,8 +203,8 @@ def compute_surface_color(scene, seen_objects, direction_vectors, normal_vectors
 
             I_diffuse = np.clip(diffusive_color * normal_dot_light_vectors[relevant_indices], 0, 1)
             I_specular = np.clip(specular_color * reflection_dot_direction_vectors[relevant_indices] ** shininess, 0, 1)
-            diffuse_colors[relevant_indices] += np.clip(I_diffuse * diffuse_intensities[relevant_indices] / len(light_vectors_matrix), 0, 1)
-            specular_colors[relevant_indices] += np.clip(I_specular * specular_intensities[relevant_indices] / len(light_vectors_matrix), 0, 1)
+            diffuse_colors[relevant_indices] += np.clip(I_diffuse * diffuse_intensities[relevant_indices] / light_vectors_matrix.shape[0], 0, 1)
+            specular_colors[relevant_indices] += np.clip(I_specular * specular_intensities[relevant_indices] / light_vectors_matrix.shape[0], 0, 1)
 
     return np.clip(diffuse_colors, 0, 1), np.clip(specular_colors, 0, 1)
 

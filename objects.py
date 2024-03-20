@@ -107,7 +107,7 @@ class PointSource(LightSource):
 
         diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / non_obscured_distances ** 2
         specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / non_obscured_distances ** 2
-        return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), [light_vectors]
+        return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), light_vectors[None, :, :]
 
 
 class DiskSource(LightSource):
@@ -135,9 +135,13 @@ class DiskSource(LightSource):
         random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
         random_light_point = self.position + random_point_local
         light_vectors = random_light_point - extended_intersection_points
+        return self.intensities_from_vectors(extended_intersection_points, light_vectors, scene_objects)
 
+    def intensities_from_vectors(self, intersection_points, light_vectors, scene_objects):
+        size = int(intersection_points.shape[0] / self.n_points)
         point_source = PointSource(intensity=self.intensity / self.n_points)
-        diffuse_intensities, specular_intensities, light_vectors_matrix = point_source.intensities_from_vectors(extended_intersection_points, light_vectors, scene_objects)
+        diffuse_intensities, specular_intensities, light_vectors_matrix = point_source.intensities_from_vectors(
+            intersection_points, light_vectors, scene_objects)
 
         diffuse_intensities = diffuse_intensities.reshape((self.n_points, size, 3))
         diffuse_intensities = np.sum(diffuse_intensities, axis=0)
@@ -145,10 +149,7 @@ class DiskSource(LightSource):
         specular_intensities = specular_intensities.reshape((self.n_points, size, 3))
         specular_intensities = np.sum(specular_intensities, axis=0)
 
-        light_vectors = light_vectors_matrix[0]
-        light_vectors = light_vectors.reshape((self.n_points, size, 3))
-
-        light_vectors_matrix = [light_vectors[i, :, :] for i in range(light_vectors.shape[0])]
+        light_vectors_matrix = light_vectors_matrix.reshape((self.n_points, size, 3))
 
         return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), light_vectors_matrix
 
@@ -162,11 +163,12 @@ class EasingModes:
 
 
 class DirectionalDiskSource(DiskSource):
-    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=30, easing_mode=EasingModes.EXPONENTIAL):
+    def __init__(self, x=4, y=0, z=20, radius=3, intensity=15, angle=30, easing_mode=EasingModes.QUADRATIC):
         super().__init__(x, y, z, radius=radius, intensity=intensity)
         self.angle = angle * np.pi / 180
         self.fall_off_angle = 20 * np.pi / 180
         self.easing_mode = easing_mode
+        self.n_points = 100
         if angle == 90:
             print("Using a directional disk source with an angle of 90 degrees is not recommended. "
                   "Use DiskSource instead.")
@@ -189,8 +191,7 @@ class DirectionalDiskSource(DiskSource):
         return eased_matrix
 
     def compute_light_intensity(self, intersection_points, scene_objects):
-        size, _ = intersection_points.shape
-        total_intensities = np.zeros(size, dtype=float)
+        size = intersection_points.shape[0]
 
         if self.normal_vector[0] != 0 and self.normal_vector[1] == 0 and self.normal_vector[2] == 0:
             perpendicular_vector = np.array([0.0, 1.0, 0.0])
@@ -203,54 +204,35 @@ class DirectionalDiskSource(DiskSource):
         x = np.sum(x_hat * (intersection_points - self.position), axis=-1)
         y = np.sum(y_hat * (intersection_points - self.position), axis=-1)
         z = np.sum(self.normal_vector * (intersection_points - self.position), axis=-1)
+
         distance_from_normal_axis = (x ** 2 + y ** 2) ** 0.5
-
         allowed_distance = self.radius + np.tan(self.angle) * np.abs(z)
-        distance_to_edge_off_fall_off_region = self.radius + np.tan(self.angle + self.fall_off_angle) * np.abs(z)
-        allowed_fall_off_distance = distance_to_edge_off_fall_off_region - allowed_distance
+        distance_to_edge_of_fall_off_region = self.radius + np.tan(self.angle + self.fall_off_angle) * np.abs(z)
+        allowed_fall_off_distance = distance_to_edge_of_fall_off_region - allowed_distance
 
-        inside_light_beam_indices = distance_from_normal_axis <= distance_to_edge_off_fall_off_region
-        relevant_total_intensities = total_intensities[inside_light_beam_indices]
+        inside_light_beam_collapsed_indices = distance_from_normal_axis <= distance_to_edge_of_fall_off_region
+        inside_light_beam_indices = np.tile(inside_light_beam_collapsed_indices, self.n_points)
 
-        visible_intersection_points = intersection_points[inside_light_beam_indices]
+        diffuse_intensities, specular_intensities, light_vectors_matrix = super().compute_light_intensity(
+            intersection_points[inside_light_beam_collapsed_indices], scene_objects)
 
-        light_vectors_matrix = []
-        for i in range(self.n_points):
-            theta = np.random.random(size) * 2 * math.pi
-            d = np.random.random(size) ** 0.5 * self.radius
+        x = distance_from_normal_axis[inside_light_beam_collapsed_indices]
+        d = allowed_fall_off_distance[inside_light_beam_collapsed_indices]
+        a = allowed_distance[inside_light_beam_collapsed_indices]
+        fall_off_factors = self.ease_fall_off_beam(x, a, d)[:, None]
 
-            random_point_local = d[:, None] * (np.cos(theta)[:, None] * x_hat + np.sin(theta)[:, None] * y_hat)
-            random_light_point = self.position + random_point_local
-            light_vectors = random_light_point - intersection_points
-            norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
-            light_vectors = light_vectors / norms
-            obscuring_objects, _ = find_closest_intersected_object(visible_intersection_points,
-                                                                   light_vectors[inside_light_beam_indices],
-                                                                   scene_objects)
+        total_diffuse_intensities = np.zeros((size, 3))
+        total_diffuse_intensities[inside_light_beam_collapsed_indices] = diffuse_intensities * fall_off_factors
 
-            non_obscured_indices = obscuring_objects == -1
+        total_specular_intensities = np.zeros((size, 3))
+        total_specular_intensities[inside_light_beam_collapsed_indices] = specular_intensities * fall_off_factors
 
-            distances = norms[inside_light_beam_indices].reshape(visible_intersection_points.shape[0])
+        light_vectors = light_vectors_matrix.reshape(-1, 3)
+        total_light_vectors = np.zeros((size * self.n_points, 3))
+        total_light_vectors[inside_light_beam_indices] = light_vectors
+        total_light_vectors = total_light_vectors.reshape((self.n_points, size, 3))
 
-            intensities = self.intensity / self.n_points / distances[non_obscured_indices] ** 2
-
-            x = distance_from_normal_axis[inside_light_beam_indices]
-            x = x[non_obscured_indices]
-
-            d = allowed_fall_off_distance[inside_light_beam_indices]
-            d = d[non_obscured_indices]
-
-            a = allowed_distance[inside_light_beam_indices]
-            a = a[non_obscured_indices]
-
-            fall_off_factors = self.ease_fall_off_beam(x, a, d)
-            relevant_total_intensities[non_obscured_indices] += intensities * fall_off_factors
-
-            light_vectors_matrix.append(light_vectors)
-
-        total_intensities[inside_light_beam_indices] = relevant_total_intensities
-
-        return total_intensities, light_vectors_matrix
+        return np.clip(total_diffuse_intensities, 0, 1), np.clip(total_specular_intensities, 0, 1), total_light_vectors
 
 
 def solve_quadratic(B, C, mode):
@@ -313,7 +295,7 @@ def quadratic_easing(x, a, d):
     x = x[easing_indices]
     a = a[easing_indices]
     d = d[easing_indices]
-    result[easing_indices] = 1 - (x - a) * (1 / d - (x - (a + d)) / d ** 2)
+    result[easing_indices] = (x - a + d) * (1 / d - (x - a) / d ** 2)
 
     result[before_easing_starts_indices] = 1
     return result
