@@ -111,10 +111,10 @@ class PointSource(LightSource):
 
 
 class DiskSource(LightSource):
-    def __init__(self, x=4.0, y=0.0, z=20.0, radius=3.0, intensity=15.0):
+    def __init__(self, x=4.0, y=0.0, z=20.0, radius=3.0, intensity=15.0, N=30):
         super().__init__(x, y, z, intensity=intensity)
         self.radius = radius
-        self.n_points = 100
+        self.n_points = N
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         size = intersection_points.shape[0]

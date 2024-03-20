@@ -1,6 +1,6 @@
 import numpy as np
-WIDTH = 100
-HEIGHT = 100
+WIDTH = 1000
+HEIGHT = 1000
 SIZE = HEIGHT * WIDTH
 image_directory = "Images/"
 WHITE = np.array([1.0, 1.0, 1.0])
