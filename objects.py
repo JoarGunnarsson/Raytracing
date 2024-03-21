@@ -70,7 +70,9 @@ class LightSource(Object):
     def __init__(self, x=4.0, y=0.0, z=1000.0, intensity=1.05):
         super().__init__(x, y, z)
         self.intensity = intensity
+        self.ambient_intensity = self.intensity / 50
         self.normal_vector = np.array([0.0, 0.0, -1.0])
+        self.ambient_color = WHITE.copy()
         self.diffuse_color = WHITE.copy()
         self.specular_color = WHITE.copy()
 
@@ -79,10 +81,15 @@ class LightSource(Object):
         pass
 
 
+class AmbientLight:
+    def __init__(self, intensity=0, color=WHITE):
+        self.intensity = intensity
+        self.color = color
+
+
 class PointSource(LightSource):
     def __init__(self, x=4.0, y=0.0, z=20.0, intensity=15.0):
         super().__init__(x, y, z, intensity=intensity)
-        self.orb = Sphere(x, y, z, 0.1, material=materials.Material(diffuse_color=WHITE))
 
     def compute_light_intensity(self, intersection_points, scene_objects):
         light_vectors = self.position - intersection_points
@@ -91,22 +98,15 @@ class PointSource(LightSource):
 
     def intensities_from_vectors(self, intersection_points, light_vectors, scene_objects):
         size = intersection_points.shape[0]
-        diffuse_intensities = np.zeros((size, 3), dtype=float)
-        specular_intensities = np.zeros((size, 3), dtype=float)
 
         norms = np.linalg.norm(light_vectors, axis=-1, keepdims=True)
         light_vectors = light_vectors / norms
-        obscuring_objects, distances_to_intersections = find_closest_intersected_object(intersection_points, light_vectors, scene_objects)
-
-        obscured_indices = np.logical_and(obscuring_objects != -1, distances_to_intersections.reshape(-1) < norms.reshape(-1))
-        non_obscured_indices = np.logical_not(obscured_indices)
+        multiplier = shadow_objects_multipliers(intersection_points, light_vectors, scene_objects)
 
         distances = norms.reshape(size)
 
-        non_obscured_distances = distances[non_obscured_indices][:, None]
-
-        diffuse_intensities[non_obscured_indices] = self.diffuse_color * self.intensity / non_obscured_distances ** 2
-        specular_intensities[non_obscured_indices] = self.specular_color * self.intensity / non_obscured_distances ** 2
+        diffuse_intensities = self.diffuse_color * self.intensity / distances[:, None] ** 2 * multiplier
+        specular_intensities = self.specular_color * self.intensity / distances[:, None] ** 2 * multiplier
         return np.clip(diffuse_intensities, 0, 1), np.clip(specular_intensities, 0, 1), light_vectors[None, :, :]
 
 
@@ -144,10 +144,10 @@ class DiskSource(LightSource):
             intersection_points, light_vectors, scene_objects)
 
         diffuse_intensities = diffuse_intensities.reshape((self.n_points, size, 3))
-        diffuse_intensities = np.sum(diffuse_intensities, axis=0)
+        diffuse_intensities = np.sum(diffuse_intensities, axis=0) / self.n_points
 
         specular_intensities = specular_intensities.reshape((self.n_points, size, 3))
-        specular_intensities = np.sum(specular_intensities, axis=0)
+        specular_intensities = np.sum(specular_intensities, axis=0) / self.n_points
 
         light_vectors_matrix = light_vectors_matrix.reshape((self.n_points, size, 3))
 
@@ -168,7 +168,7 @@ class DirectionalDiskSource(DiskSource):
         self.angle = angle * np.pi / 180
         self.fall_off_angle = 20 * np.pi / 180
         self.easing_mode = easing_mode
-        self.n_points = 100
+        self.n_points = 30
         if angle == 90:
             print("Using a directional disk source with an angle of 90 degrees is not recommended. "
                   "Use DiskSource instead.")
@@ -256,15 +256,33 @@ def solve_quadratic(B, C, mode):
 
         min_ok_indices = 0 < minimum_solutions
         valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
-    else:
+
+    elif mode == "furthest":
         min_ok_indices = 0 < minimum_solutions
         valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
 
         max_ok_indices = 0 < maximum_solutions
         valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
+    else:
+        raise ValueError("Not a valid mode.")
+
     solutions[real_solution_indices] = valid_solutions
     return solutions
+
+
+def shadow_objects_multipliers(starting_positions, direction_vectors, object_list):
+    size, _ = direction_vectors.shape
+    multiplier = np.ones((size, 3))
+    for i, obj in enumerate(object_list):
+        min_t = obj.intersection(starting_positions, direction_vectors, mode="closest")
+        max_t = obj.intersection(starting_positions, direction_vectors, mode="furthest")
+        ok_indices = max_t > 0
+        distance_travelled_through_object = max_t[ok_indices] - min_t[ok_indices]
+        attenuation_factor = (obj.material.transparency_coefficient) * np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
+        multiplier[ok_indices] *= attenuation_factor
+
+    return multiplier
 
 
 def find_closest_intersected_object(starting_positions, direction_vectors, object_list):
