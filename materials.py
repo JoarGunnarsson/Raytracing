@@ -20,7 +20,7 @@ class Material:
         self.attenuation_coefficient = attenuation_coefficient
         if absorption_color is None:
             absorption_color = 1 - self.diffuse_color
-            color_norm = np.sum(absorption_color)
+            color_norm = np.max(absorption_color)
             if color_norm == 0:
                 absorption_color = WHITE.copy()
             else:
