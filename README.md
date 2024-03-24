@@ -62,3 +62,7 @@ python main.py
 ```
 
 You can define your own objects, light sources and materials in `objects.py`, and `materials.py` to suit your needs.
+
+### Notes
+
+This project does not explicitly support objects intersecting other objects, and can result in inaccurate results in regard to transparent and refractive materials.

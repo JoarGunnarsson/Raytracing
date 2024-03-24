@@ -240,7 +240,7 @@ def solve_quadratic(B, C, mode):
     solutions = -np.ones(B.shape, dtype=float)
 
     discriminants = B ** 2 - 4 * C
-    real_solution_indices = 0 <= discriminants
+    real_solution_indices = discriminants > 0
 
     root_discriminant = discriminants[real_solution_indices] ** 0.5
     B = B[real_solution_indices]

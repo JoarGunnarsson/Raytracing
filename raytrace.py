@@ -19,6 +19,7 @@ def get_pixel_color(X, Y, scene):
 def recursive_function(scene, starting_points, direction_vectors, reflection_depth, refraction_depth):
     # Input: Ray starting point, ray direction vectors.
     # Returns: The color corresponding to the vectors.
+
     initial_size = starting_points.shape[0]
 
     # 0: Define color array, and return early if the number of vectors is small.
@@ -65,13 +66,13 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
     n1 = np.zeros(object_intersection_size, dtype=float)
     n2 = np.zeros(object_intersection_size, dtype=float)
 
-    inside_an_object_indices = np.sum(direction_vectors * normal_vectors, axis=-1) > 0
-
+    inside_an_object_indices = np.sum(direction_vectors * normal_vectors, axis=-1) > EPSILON
+    outside_an_object_indices = np.logical_not(inside_an_object_indices)
     for i, obj in enumerate(scene.objects):
         intersects_this_object_indices = seen_objects == i
 
         inside_this_object_indices = np.logical_and(inside_an_object_indices, intersects_this_object_indices)
-        outside_this_object_indices = np.logical_and(np.logical_not(inside_an_object_indices),
+        outside_this_object_indices = np.logical_and(outside_an_object_indices,
                                                      intersects_this_object_indices)
 
         n1[inside_this_object_indices] = obj.material.refractive_index
@@ -79,9 +80,6 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
 
         n1[outside_this_object_indices] = AIR_REFRACTIVE_INDEX
         n2[outside_this_object_indices] = obj.material.refractive_index
-
-        # TODO: This code assumes the object is surrounded by air. This is not necessarily the case, if the object
-        # is inside another object.
 
     refraction_normal_vectors = -normal_vectors.copy()
     refraction_normal_vectors[inside_an_object_indices] *= -1.0
@@ -101,19 +99,20 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
 
     # 7: Recursively compute the colors for these vectors.
     if refraction_depth != 0:
-        adjusted_intersections = intersection_points[transmitted_indices] + 2 * EPSILON * refraction_normal_vectors[
-            transmitted_indices]
+        adjusted_intersections = intersection_points[transmitted_indices] + 2 * EPSILON * refraction_normal_vectors[transmitted_indices]
         refraction_colors[transmitted_indices] = recursive_function(scene, adjusted_intersections, transmitted_vectors,
                                                                     reflection_depth, refraction_depth - 1)
         for i, obj in enumerate(scene.objects):
             intersects_this_object_indices = seen_objects == i
             outside_this_object_indices = np.logical_and(np.logical_not(inside_an_object_indices),
                                                          intersects_this_object_indices)
+
             transmitted_into_this_object_indices = np.logical_and(outside_this_object_indices, transmitted_indices)
             intersections_into_this_object = intersection_points[transmitted_into_this_object_indices]
-            rel_ind = seen_objects[transmitted_indices] == i
-            ind = np.logical_and(rel_ind, np.logical_not(inside_an_object_indices[transmitted_indices]))
-            transmitted_vectors_into_this_object = transmitted_vectors[ind]
+
+            indices = outside_this_object_indices[transmitted_indices]
+            transmitted_vectors_into_this_object = transmitted_vectors[indices]
+
             distance_travelled_through_object = obj.intersection(intersections_into_this_object,
                                                                  transmitted_vectors_into_this_object, "furthest")
             attenuation_factor = np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
@@ -123,13 +122,14 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
         if intersection_points[total_reflection_indices].shape[0] > 0:
             total_reflection_vectors = reflect_vectors(direction_vectors_to_be_reflected,
                                                        -refraction_normal_vectors[total_reflection_indices])
+
             refraction_colors[total_reflection_indices] = recursive_function(scene, intersection_points[
                 total_reflection_indices], total_reflection_vectors, reflection_depth - 1, refraction_depth - 1)
 
     # 8: Compute the reflected vectors, and recursively compute the color for them.
     if reflection_depth != 0:
         reflection_vectors = reflect_vectors(direction_vectors, -refraction_normal_vectors)
-        reflection_colors = recursive_function(scene, intersection_points, reflection_vectors, reflection_depth - 1,
+        reflection_colors = recursive_function(scene, intersection_points + EPSILON * normal_vectors, reflection_vectors, reflection_depth - 1,
                                                refraction_depth)
 
     # 9: Compute the surface color of the object.
@@ -167,7 +167,7 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
 
     combined_colors[object_intersection_indices] = surface_colors + refraction_colors + reflection_colors
 
-    return np.clip(combined_colors, 0, 1)
+    return combined_colors
 
 
 def fresnel_multiplier(incident_vectors, transmitted_vectors, normal_vectors, n1, n2):

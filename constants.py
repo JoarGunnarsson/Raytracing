@@ -1,6 +1,6 @@
 import numpy as np
-WIDTH = 500
-HEIGHT = 500
+WIDTH = 1000
+HEIGHT = 1000
 SIZE = HEIGHT * WIDTH
 image_directory = "Images/"
 WHITE = np.array([1.0, 1.0, 1.0])
@@ -13,7 +13,7 @@ SKY_BLUE = np.array([0.251, 0.624, 0.769])
 GREY = np.array([0.5, 0.5, 0.5])
 BACKGROUND_COLOR = SKY_BLUE
 MAX_REFLECTION_DEPTH = 3
-MAX_REFRACTION_DEPTH = 5
+MAX_REFRACTION_DEPTH = 4
 EPSILON = 0.00001
 AIR_REFRACTIVE_INDEX = 1
 SMALL_NUM = 3  # Reduces the number of recursive calls, ignoring when only a small number of light rays are reflected.
