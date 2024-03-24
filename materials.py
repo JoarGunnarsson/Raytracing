@@ -1,8 +1,10 @@
-from constants import *
+import colors
+import numpy as np
 
 
 class Material:
-    def __init__(self, ambient_color=None, diffuse_color=YELLOW, specular_color=WHITE, diffuse_coefficient=0.8, specular_coefficient=0.3,
+    def __init__(self, ambient_color=None, diffuse_color=colors.YELLOW, specular_color=colors.WHITE,
+                 diffuse_coefficient=0.8, specular_coefficient=0.3,
                  shininess=100, reflection_coefficient=0, transparency_coefficient=0, refractive_index=1,
                  smoothness=0, attenuation_coefficient=0.1, absorption_color=None):
         self.diffuse_color = diffuse_color
@@ -22,7 +24,7 @@ class Material:
             absorption_color = 1 - self.diffuse_color
             color_norm = np.max(absorption_color)
             if color_norm == 0:
-                absorption_color = WHITE.copy()
+                absorption_color = colors.WHITE
             else:
                 absorption_color = absorption_color / color_norm
 

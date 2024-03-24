@@ -52,18 +52,46 @@ class Screen(Object):
 
 
 class Sphere(Object):
-    def __init__(self, x=4, y=0, z=0, radius=1.0, material=materials.Material(YELLOW)):
+    def __init__(self, x=4, y=0, z=0, radius=1.0, material=materials.Material(colors.YELLOW)):
         super().__init__(x, y, z)
         self.radius = radius
         self.material = material
 
-    def intersection(self, starting_positions, direction_vectors, mode="closest"):
+    def intersection(self, starting_positions, direction_vectors, mode="first"):
         dot_product = np.sum(direction_vectors * starting_positions, axis=-1)
         B = 2 * (dot_product - np.dot(direction_vectors, self.position))
         difference_in_positions = self.position - starting_positions
         C = np.sum(difference_in_positions * difference_in_positions, axis=-1) - self.radius ** 2
         solutions = solve_quadratic(B, C, mode)
         return solutions
+
+    def get_normal_vectors(self, intersection_points):
+        normal_vectors = intersection_points - self.position
+        return normal_vectors / np.linalg.norm(normal_vectors, axis=-1, keepdims=True)
+
+
+class Plane(Object):
+    def __init__(self, x=4, y=0, z=0, v1=np.array([1.0, 0.0, 0.0]), v2=np.array([0.0, 1.0, 0.0]),
+                 material=materials.Material(colors.WHITE)):
+        super().__init__(x, y, z)
+        self.v1 = v1
+        self.v2 = v2
+        self.normal_vector = np.cross(v1, v2)
+        self.normal_vector = self.normal_vector / np.linalg.norm(self.normal_vector)
+        self.material = material
+
+    def intersection(self, starting_positions, direction_vectors, mode="first"):
+        distances = -np.ones(starting_positions.shape[0])
+        shifted_points = starting_positions - self.position
+        distances_to_start = np.sum(shifted_points * self.normal_vector, axis=-1)
+        direction_dot_normal = np.sum(direction_vectors * -self.normal_vector, axis=-1)
+        non_perpendicular_indices = direction_dot_normal != 0
+        distances[non_perpendicular_indices] = distances_to_start[non_perpendicular_indices] / direction_dot_normal[non_perpendicular_indices]
+        return distances
+
+    def get_normal_vectors(self, intersection_points):
+        normal_vectors = np.full(intersection_points.shape, self.normal_vector)
+        return normal_vectors
 
 
 class LightSource(Object):
@@ -72,9 +100,9 @@ class LightSource(Object):
         self.intensity = intensity
         self.ambient_intensity = self.intensity / 50
         self.normal_vector = np.array([0.0, 0.0, -1.0])
-        self.ambient_color = WHITE.copy()
-        self.diffuse_color = WHITE.copy()
-        self.specular_color = WHITE.copy()
+        self.ambient_color = colors.WHITE
+        self.diffuse_color = colors.WHITE
+        self.specular_color = colors.WHITE
 
     def compute_light_intensity(self, *args, **kwargs):
         """Virtual method to be implemented in child classes."""
@@ -82,7 +110,7 @@ class LightSource(Object):
 
 
 class AmbientLight:
-    def __init__(self, intensity=0, color=WHITE):
+    def __init__(self, intensity=0, color=colors.WHITE):
         self.intensity = intensity
         self.color = color
 
@@ -250,14 +278,14 @@ def solve_quadratic(B, C, mode):
     minimum_solutions = np.minimum(x1, x2)
     maximum_solutions = np.maximum(x1, x2)
     valid_solutions = solutions[real_solution_indices]
-    if mode == "closest":
+    if mode == "first":
         max_ok_indices = 0 < maximum_solutions
         valid_solutions[max_ok_indices] = maximum_solutions[max_ok_indices]
 
         min_ok_indices = 0 < minimum_solutions
         valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
 
-    elif mode == "furthest":
+    elif mode == "second":
         min_ok_indices = 0 < minimum_solutions
         valid_solutions[min_ok_indices] = minimum_solutions[min_ok_indices]
 
@@ -275,11 +303,11 @@ def shadow_objects_multipliers(starting_positions, direction_vectors, object_lis
     size, _ = direction_vectors.shape
     multiplier = np.ones((size, 3))
     for i, obj in enumerate(object_list):
-        min_t = obj.intersection(starting_positions, direction_vectors, mode="closest")
-        max_t = obj.intersection(starting_positions, direction_vectors, mode="furthest")
-        ok_indices = max_t > 0
-        distance_travelled_through_object = max_t[ok_indices] - min_t[ok_indices]
-        attenuation_factor = (obj.material.transparency_coefficient) * np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
+        first_t = obj.intersection(starting_positions, direction_vectors, mode="first")
+        second_t = obj.intersection(starting_positions, direction_vectors, mode="second")
+        ok_indices = second_t > 0
+        distance_travelled_through_object = second_t[ok_indices] - first_t[ok_indices]
+        attenuation_factor = obj.material.transparency_coefficient * np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
         multiplier[ok_indices] *= attenuation_factor
 
     return multiplier
@@ -290,7 +318,7 @@ def find_closest_intersected_object(starting_positions, direction_vectors, objec
     min_t = np.full(size, np.inf)
     closest_objects = np.full(size, -1)
     for i, obj in enumerate(object_list):
-        t = obj.intersection(starting_positions, direction_vectors)
+        t = obj.intersection(starting_positions, direction_vectors, "first")
         positive_indices = t > 0
         min_t[positive_indices] = np.minimum(min_t[positive_indices], t[positive_indices])
         new_closest_object_found_indices = min_t == t
