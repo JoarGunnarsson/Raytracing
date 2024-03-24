@@ -1,7 +1,8 @@
-from constants import *
+import constants as const
 import materials as materials
 import math
 import numpy as np
+import colors
 
 
 class Object:
@@ -34,10 +35,10 @@ class Screen(Object):
                  y_vector=np.array([0, 0, 1]), width=1):
         super().__init__(x, y, z)
         self.width = width
-        self.height = width * HEIGHT / WIDTH
-        self.pixels_x = float(WIDTH)
-        self.pixels_y = float(HEIGHT)
-        self.image = np.zeros((HEIGHT, WIDTH, 3), dtype=float)
+        self.height = width * const.HEIGHT / const.WIDTH
+        self.pixels_x = float(const.WIDTH)
+        self.pixels_y = float(const.HEIGHT)
+        self.image = np.zeros((const.HEIGHT, const.WIDTH, 3), dtype=float)
         self.normal_vector = normal_vector
         self.y_vector = y_vector
         self.x_vector = np.cross(self.normal_vector, self.y_vector)
@@ -85,8 +86,10 @@ class Plane(Object):
         shifted_points = starting_positions - self.position
         distances_to_start = np.sum(shifted_points * self.normal_vector, axis=-1)
         direction_dot_normal = np.sum(direction_vectors * -self.normal_vector, axis=-1)
-        non_perpendicular_indices = direction_dot_normal != 0
+        non_perpendicular_indices = np.abs(direction_dot_normal) > const.EPSILON
         distances[non_perpendicular_indices] = distances_to_start[non_perpendicular_indices] / direction_dot_normal[non_perpendicular_indices]
+        if direction_dot_normal.shape[0] != 0:
+            print(np.min(np.abs(direction_dot_normal)))
         return distances
 
     def get_normal_vectors(self, intersection_points):

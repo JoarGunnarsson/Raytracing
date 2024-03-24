@@ -65,4 +65,4 @@ You can define your own objects, light sources and materials in `objects.py`, an
 
 ### Notes
 
-This project does not explicitly support objects intersecting other objects, and can result in inaccurate results in regard to transparent and refractive materials.
+This project does not explicitly support objects intersecting other objects, and can result in inaccurate results in regard to transparent and refractive materials. As a consequence of this fact, plane objects should only have a refractive index equal to 1.
