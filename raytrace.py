@@ -92,7 +92,6 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
     # 6: Split the refraction vectors into transmitted vectors and reflected vectors.
     total_reflection_indices = np.logical_not(transmitted_indices)
     R[total_reflection_indices] = 1
-    direction_vectors_to_be_reflected = direction_vectors[total_reflection_indices]
 
     # 7: Recursively compute the colors for these vectors.
     if refraction_depth != 0:
@@ -116,19 +115,15 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
             attenuation_factor = np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
             refraction_colors[transmitted_into_this_object_indices] *= attenuation_factor
 
-    if refraction_depth != 0 and reflection_depth != 0:
-        if intersection_points[total_reflection_indices].shape[0] > 0:
-            total_reflection_vectors = reflect_vectors(direction_vectors_to_be_reflected,
-                                                       -refraction_normal_vectors[total_reflection_indices])
-
-            refraction_colors[total_reflection_indices] = recursive_function(scene, intersection_points[
-                total_reflection_indices], total_reflection_vectors, reflection_depth - 1, refraction_depth - 1)
 
     # 8: Compute the reflected vectors, and recursively compute the color for them.
     if reflection_depth != 0:
         reflection_vectors = reflect_vectors(direction_vectors, -refraction_normal_vectors)
         reflection_colors = recursive_function(scene, intersection_points + const.EPSILON * normal_vectors, reflection_vectors, reflection_depth - 1,
                                                refraction_depth)
+
+    if refraction_depth != 0 and reflection_depth != 0:
+        refraction_colors[total_reflection_indices] = reflection_colors[total_reflection_indices]
 
     # 9: Compute the surface color of the object.
     ambient_intensities = np.zeros((object_intersection_size, 3))

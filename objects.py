@@ -95,7 +95,7 @@ class Plane(Object):
         distances[non_perpendicular_indices] = distances_to_start[non_perpendicular_indices] / direction_dot_normal[
             non_perpendicular_indices]
 
-        return distances
+        return distances - const.EPSILON
 
     def get_normal_vectors(self, intersection_points):
         normal_vectors = np.full(intersection_points.shape, self.normal_vector)
@@ -178,7 +178,7 @@ class ObjectUnion:
         min_distance = np.full(size, np.inf)
         normal_vectors = np.zeros((size, 3))
         for i, obj in enumerate(self.objects):
-            distance = obj.compute_distance(intersection_points)
+            distance = np.abs(obj.compute_distance(intersection_points))
             min_distance = np.minimum(min_distance, distance)
             new_closest_object_found_indices = min_distance == distance
             normal_vectors[new_closest_object_found_indices] = obj.normal_vector
