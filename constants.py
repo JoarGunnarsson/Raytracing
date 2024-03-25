@@ -1,6 +1,6 @@
 import colors
-WIDTH = 100
-HEIGHT = 100
+WIDTH = 1000
+HEIGHT = 1000
 SIZE = HEIGHT * WIDTH
 image_directory = "Images/"
 BACKGROUND_COLOR = colors.SKY_BLUE

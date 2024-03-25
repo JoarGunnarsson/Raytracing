@@ -20,12 +20,13 @@ class Camera(Object):
             viewing_direction = np.array([1 / 2 ** 0.5, 0, -1 / 2 ** 0.5])
         viewing_direction /= np.linalg.norm(viewing_direction)
         self.viewing_direction = viewing_direction
-        self.y_vector = np.array([0.1, 0, 0.97])
+        self.y_vector = np.array([0.0, 0.0, 1.0])
         self.y_vector /= np.linalg.norm(self.y_vector)
         if np.dot(viewing_direction, self.y_vector) != 0:
             orthogonal_vector = np.cross(viewing_direction, self.y_vector)
             self.y_vector = np.cross(orthogonal_vector, viewing_direction)
             self.y_vector = self.y_vector / np.linalg.norm(self.y_vector)
+
         screen_x, screen_y, screen_z = self.position + viewing_direction
         self.screen = Screen(screen_x, screen_y, screen_z, normal_vector=-viewing_direction, y_vector=self.y_vector)
 
@@ -82,19 +83,116 @@ class Plane(Object):
         self.material = material
 
     def intersection(self, starting_positions, direction_vectors, mode="first"):
-        distances = -np.ones(starting_positions.shape[0])
         shifted_points = starting_positions - self.position
-        distances_to_start = np.sum(shifted_points * self.normal_vector, axis=-1)
+        return self.compute_distance_in_centered_system(shifted_points, direction_vectors, mode)
+
+    def compute_distance_in_centered_system(self, starting_positions, direction_vectors, mode):
+        distances = -np.ones(starting_positions.shape[0])
+
+        distances_to_start = np.sum(starting_positions * self.normal_vector, axis=-1)
         direction_dot_normal = np.sum(direction_vectors * -self.normal_vector, axis=-1)
         non_perpendicular_indices = np.abs(direction_dot_normal) > const.EPSILON
-        distances[non_perpendicular_indices] = distances_to_start[non_perpendicular_indices] / direction_dot_normal[non_perpendicular_indices]
-        if direction_dot_normal.shape[0] != 0:
-            print(np.min(np.abs(direction_dot_normal)))
+        distances[non_perpendicular_indices] = distances_to_start[non_perpendicular_indices] / direction_dot_normal[
+            non_perpendicular_indices]
+
         return distances
 
     def get_normal_vectors(self, intersection_points):
         normal_vectors = np.full(intersection_points.shape, self.normal_vector)
         return normal_vectors
+
+    def compute_distance(self, points):
+        distances_to_start = np.sum((points - self.position) * -self.normal_vector, axis=-1)
+        return distances_to_start
+
+
+class Rectangle(Plane):
+    def __init__(self, x=0.0, y=0.0, z=0.0, v1=np.array([1.0, 0.0, 0.0]), v2=np.array([0.0, 1.0, 0.0]), L1=1.0, L2=1.0,
+                 material=materials.Material(colors.WHITE)):
+        super().__init__(x, y, z, v1, v2, material)
+        self.L1 = L1
+        self.L2 = L2
+
+    def intersection(self, starting_positions, direction_vectors, mode="first"):
+        shifted_points = starting_positions - self.position
+        distances = super().compute_distance_in_centered_system(shifted_points, direction_vectors, mode)
+        direction_dot_v1 = np.sum(direction_vectors * self.v1, axis=-1)
+        direction_dot_v2 = np.sum(direction_vectors * self.v2, axis=-1)
+        start_dot_v1 = np.sum(shifted_points * self.v1, axis=-1)
+        start_dot_v2 = np.sum(shifted_points * self.v2, axis=-1)
+        out_of_bounds_indices = np.logical_or(np.abs(start_dot_v1 + direction_dot_v1 * distances) > self.L1 + const.EPSILON, np.abs(start_dot_v2 + direction_dot_v2 * distances) > self.L2 + const.EPSILON)
+        distances[out_of_bounds_indices] = -1
+        return distances
+
+    def get_normal_vectors(self, intersection_points):
+        normal_vectors = np.full(intersection_points.shape, self.normal_vector)
+        return normal_vectors
+
+
+class Ellipse(Plane):
+    def __init__(self, x=4, y=0, z=0, v1=np.array([1.0, 0.0, 0.0]), v2=np.array([0.0, 1.0, 0.0]), radius=1, a=1, b=1,
+                 material=materials.Material(colors.WHITE)):
+        super().__init__(x, y, z, v1, v2, material)
+        self.radius = radius
+        self.a = a
+        self.b = b
+
+    def intersection(self, starting_positions, direction_vectors, mode="first"):
+        shifted_points = starting_positions - self.position
+        distances = super().compute_distance_in_centered_system(shifted_points, direction_vectors, mode)
+        direction_dot_v1 = np.sum(direction_vectors * self.v1, axis=-1)
+        direction_dot_v2 = np.sum(direction_vectors * self.v2, axis=-1)
+        start_dot_v1 = np.sum(shifted_points * self.v1, axis=-1)
+        start_dot_v2 = np.sum(shifted_points * self.v2, axis=-1)
+        out_of_bounds_indices = ((start_dot_v1 + direction_dot_v1 * distances) / self.a)**2 + ((start_dot_v2 + direction_dot_v2 * distances) / self.b)**2 > self.radius**2
+        distances[out_of_bounds_indices] = -1
+        return distances
+
+    def get_normal_vectors(self, intersection_points):
+        normal_vectors = np.full(intersection_points.shape, self.normal_vector)
+        return normal_vectors
+
+
+class ObjectUnion:
+    def __init__(self, objects=None, material=materials.Material(colors.YELLOW)):
+        if objects is None:
+            objects = []
+        self.objects = objects
+        self.material = material
+
+    def intersection(self, starting_positions, direction_vectors, mode="first"):
+        if mode == "first":
+            obj, distance = find_closest_intersected_object(starting_positions, direction_vectors, self.objects)
+            distance[obj == -1] = -1
+
+        elif mode == "second":
+            obj, distance = find_second_closest_intersected_object(starting_positions, direction_vectors, self.objects)
+            distance[obj == -1] = -1
+        else:
+            raise ValueError("Not a valid mode.")
+
+        return distance.flatten()
+
+    def get_normal_vectors(self, intersection_points):
+        size, _ = intersection_points.shape
+        min_distance = np.full(size, np.inf)
+        normal_vectors = np.zeros((size, 3))
+        for i, obj in enumerate(self.objects):
+            distance = obj.compute_distance(intersection_points)
+            min_distance = np.minimum(min_distance, distance)
+            new_closest_object_found_indices = min_distance == distance
+            normal_vectors[new_closest_object_found_indices] = obj.normal_vector
+
+        return normal_vectors
+
+
+class Cuboid(ObjectUnion):
+    def __init__(self, x, y, z, v1, v2, v3, width=1.0, depth=1.0, height=1.0, material=materials.Material(diffuse_color=colors.YELLOW)):
+        objects = [Rectangle(x-width/2, y, z, -v2, v3, depth/2, height/2, material), Rectangle(x+width/2, y, z, v2, v3, depth/2, height/2, material),
+                   Rectangle(x, y-depth/2, z, v1, v3, width/2, height/2, material), Rectangle(x, y+depth/2, z, -v1, v3, width/2, height/2, material),
+                   Rectangle(x, y, z-height/2, -v1, v2, width/2, depth/2, material), Rectangle(x, y, z+height/2, v1, v2, width/2, depth/2, material)]
+
+        super().__init__(objects, material)
 
 
 class LightSource(Object):
@@ -308,7 +406,7 @@ def shadow_objects_multipliers(starting_positions, direction_vectors, object_lis
     for i, obj in enumerate(object_list):
         first_t = obj.intersection(starting_positions, direction_vectors, mode="first")
         second_t = obj.intersection(starting_positions, direction_vectors, mode="second")
-        ok_indices = second_t > 0
+        ok_indices = second_t >= 0
         distance_travelled_through_object = second_t[ok_indices] - first_t[ok_indices]
         attenuation_factor = obj.material.transparency_coefficient * np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
         multiplier[ok_indices] *= attenuation_factor
@@ -328,6 +426,41 @@ def find_closest_intersected_object(starting_positions, direction_vectors, objec
         closest_objects[new_closest_object_found_indices] = i
 
     return closest_objects, min_t[:, None]
+
+
+def old_find_second_closest_intersected_object(starting_positions, direction_vectors, object_list):
+    size, _ = direction_vectors.shape
+    min_t = np.full(size, np.inf)
+    second_smallest_t = np.full(size, np.inf)
+    second_closest_objects = np.full(size, -1)
+    for i, obj in enumerate(object_list):
+        t = obj.intersection(starting_positions, direction_vectors, "first")
+        positive_indices = t > 0
+        new_min_indices = t[positive_indices] < min_t[positive_indices]
+        min_t[positive_indices][new_min_indices] = t[positive_indices][new_min_indices]
+        new_second_smallest_indices = np.logical_and(np.logical_not(new_min_indices), t[positive_indices] < second_smallest_t[positive_indices])
+        second_smallest_t[positive_indices][new_second_smallest_indices] = t[positive_indices][new_second_smallest_indices]
+        new_second_closest_object_found_indices = second_smallest_t == t
+        second_closest_objects[new_second_closest_object_found_indices] = i
+
+    return second_closest_objects, second_smallest_t[:, None]
+
+
+def find_second_closest_intersected_object(starting_positions, direction_vectors, object_list):
+    closest, t = find_closest_intersected_object(starting_positions, direction_vectors, object_list)
+
+    size, _ = direction_vectors.shape
+    min_t = np.full(size, np.inf)
+    closest_objects = np.full(size, -1)
+    for i, obj in enumerate(object_list):
+        t = obj.intersection(starting_positions, direction_vectors, "first")
+        positive_indices = np.logical_and(t > 0, i != closest)
+        min_t[positive_indices] = np.minimum(min_t[positive_indices], t[positive_indices])
+        new_closest_object_found_indices = min_t == t
+        closest_objects[new_closest_object_found_indices] = i
+
+    return closest_objects, min_t[:, None]
+
 
 
 def linear_easing(x, a, d):

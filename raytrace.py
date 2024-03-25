@@ -112,8 +112,7 @@ def recursive_function(scene, starting_points, direction_vectors, reflection_dep
 
             distance_travelled_through_object = obj.intersection(intersections_into_this_object,
                                                                  transmitted_vectors_into_this_object, "second")
-            negative_indices = distance_travelled_through_object < 0
-            distance_travelled_through_object[negative_indices] = 10**10
+            distance_travelled_through_object = np.maximum(0, distance_travelled_through_object)
             attenuation_factor = np.exp(-obj.material.attenuation_coefficient * obj.material.absorption_color * distance_travelled_through_object[:, None])
             refraction_colors[transmitted_into_this_object_indices] *= attenuation_factor
 
@@ -217,6 +216,7 @@ def compute_surface_color(scene, seen_objects, direction_vectors, normal_vectors
     surface_color = np.zeros(direction_vectors.shape, dtype=float)
     for k, light_vec in enumerate(light_vectors_matrix):
         normal_dot_light_vectors = np.sum(normal_vectors * light_vec, axis=-1, keepdims=True)
+        normal_dot_light_vectors = np.maximum(normal_dot_light_vectors, 0)
         reflection_vectors = - 2 * normal_vectors * normal_dot_light_vectors + light_vec
         reflection_dot_direction_vectors = np.abs(
             np.sum(reflection_vectors * direction_vectors, axis=-1, keepdims=True))
