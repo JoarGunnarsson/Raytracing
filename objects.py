@@ -120,11 +120,55 @@ class Rectangle(Plane):
         direction_dot_v2 = np.sum(direction_vectors * self.v2, axis=-1)
         start_dot_v1 = np.sum(shifted_points * self.v1, axis=-1)
         start_dot_v2 = np.sum(shifted_points * self.v2, axis=-1)
-        out_of_bounds_indices = np.logical_or(np.abs(start_dot_v1 + direction_dot_v1 * distances) > self.L1 + const.EPSILON, np.abs(start_dot_v2 + direction_dot_v2 * distances) > self.L2 + const.EPSILON)
+        out_of_bounds_indices = np.logical_or(np.abs(start_dot_v1 + direction_dot_v1 * distances) > self.L1/2 + const.EPSILON, np.abs(start_dot_v2 + direction_dot_v2 * distances) > self.L2/2 + const.EPSILON)
         distances[out_of_bounds_indices] = -1
         return distances
 
     def get_normal_vectors(self, intersection_points):
+        normal_vectors = np.full(intersection_points.shape, self.normal_vector)
+        return normal_vectors
+
+
+class Triangle(Plane):
+    def __init__(self, p1=np.array([0.0, 0.0, 0.0]), p2=np.array([1.0, 0.0, 0.0]), p3=np.array([0.0, 1.0, 0.0]),
+                 material=materials.Material(colors.WHITE)):
+        x, y, z = p1
+        v1 = p2 - p1
+        v2 = p3 - p1
+        self.v3 = p3 - p2
+        self.p1 = p1
+        self.p2 = p2
+        self.p3 = p3
+        super().__init__(x, y, z, v1, v2, material)
+
+    def intersection(self, starting_positions, direction_vectors, mode="first"):
+        shifted_points = starting_positions - self.position
+        distances = super().compute_distance_in_centered_system(shifted_points, direction_vectors, mode)
+
+        in_plane_positions = starting_positions - self.position + direction_vectors * distances[:, None]
+        vec1 = np.cross(self.normal_vector, self.v1)
+        if np.dot(self.p3-self.p1, vec1) < 0:
+            vec1 = -vec1
+        start_dot_vec1 = np.sum(in_plane_positions * vec1, axis=-1)
+        neg_indices = start_dot_vec1 < 0
+
+        vec2 = np.cross(self.normal_vector, self.v2)
+        if np.dot(self.p2 - self.p1, vec2) < 0:
+            vec2 = -vec2
+        start_dot_vec2 = np.sum(in_plane_positions * vec2, axis=-1)
+        neg_indices = np.logical_or(neg_indices, start_dot_vec2 < 0)
+
+        vec3 = np.cross(self.normal_vector, self.v3)
+        if np.dot(self.p1 - self.p3, vec3) < 0:
+            vec3 = -vec3
+        start_dot_vec3 = np.sum((in_plane_positions+self.position-self.p3) * vec3, axis=-1)
+        neg_indices = np.logical_or(neg_indices, start_dot_vec3 < 0)
+
+        distances[neg_indices] = -1
+        return distances
+
+    def get_normal_vectors(self, intersection_points):
+        # TODO: This depends on the order of the points...
         normal_vectors = np.full(intersection_points.shape, self.normal_vector)
         return normal_vectors
 
@@ -188,9 +232,9 @@ class ObjectUnion:
 
 class Cuboid(ObjectUnion):
     def __init__(self, x, y, z, v1, v2, v3, width=1.0, depth=1.0, height=1.0, material=materials.Material(diffuse_color=colors.YELLOW)):
-        objects = [Rectangle(x-width/2, y, z, -v2, v3, depth/2, height/2, material), Rectangle(x+width/2, y, z, v2, v3, depth/2, height/2, material),
-                   Rectangle(x, y-depth/2, z, v1, v3, width/2, height/2, material), Rectangle(x, y+depth/2, z, -v1, v3, width/2, height/2, material),
-                   Rectangle(x, y, z-height/2, -v1, v2, width/2, depth/2, material), Rectangle(x, y, z+height/2, v1, v2, width/2, depth/2, material)]
+        objects = [Rectangle(x-width/2, y, z, -v2, v3, depth, height, material), Rectangle(x+width/2, y, z, v2, v3, depth, height, material),
+                   Rectangle(x, y-depth/2, z, v1, v3, width, height, material), Rectangle(x, y+depth/2, z, -v1, v3, width, height, material),
+                   Rectangle(x, y, z-height/2, -v1, v2, width, depth, material), Rectangle(x, y, z+height/2, v1, v2, width, depth, material)]
 
         super().__init__(objects, material)
 
