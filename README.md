@@ -1,6 +1,6 @@
 # Python Ray Tracing Project
 
-This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path light takes, interacting with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Materials can have diffusive, specular, properties. Furthermore, objects can also be reflective and transparent, with customizable refractive indices. Both, spheres and planes are implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source. Furthermore, each light source has a directional variant, function similarly to a spotlight. The directional light sources has multiple possible types of options for easing the edge of the lightbeam.
+This is a Python project for ray tracing, a technique used in computer graphics to generate an image by tracing the path light takes, interacting with different objects and materials. This project provides a basic implementation of ray tracing using Python and NumPy. Materials can have diffusive, specular, properties. Furthermore, objects can also be reflective and transparent, with customizable refractive indices. Spheres, planes, squares, triangles, and unions of these objects have been implemented. Additionally, two different types of light sources have been implemented: a point light source and a disk light source. Furthermore, each light source has a directional variant, function similarly to a spotlight. The directional light sources has multiple possible types of options for easing the edge of the lightbeam.
 
 
 ### Example scene
@@ -12,9 +12,11 @@ Below are four different an example scenes, showcasing the different material ty
 |             Example 1              |             Example 2              |
 | ![Example 3](Images/example_3.png) | ![Example 4](Images/example_4.png) |
 |             Example 3              |             Example 4              |
+| ![Example 5](Images/example_5.png) |
+|             Example 5              |
 
 
-#### Directional disk light source, and different easing modes:
+#### Directional disk light source and different easing modes:
 
 | ![Linear easing](Images/linear_easing.png) |   ![Quadratic easing](Images/quadratic_easing.png)   |
 |:------------------------------------------:|:----------------------------------------------------:|
