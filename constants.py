@@ -1,11 +1,11 @@
 import colors
-WIDTH = 1000
-HEIGHT = 1000
+WIDTH = 100
+HEIGHT = 100
 SIZE = HEIGHT * WIDTH
 image_directory = "Images/"
 BACKGROUND_COLOR = colors.SKY_BLUE
-MAX_REFLECTION_DEPTH = 3
-MAX_REFRACTION_DEPTH = 4
+MAX_REFLECTION_DEPTH = 3*0
+MAX_REFRACTION_DEPTH = 4*0
 EPSILON = 0.00001
 AIR_REFRACTIVE_INDEX = 1
 SMALL_NUM = 3  # Reduces the number of recursive calls, ignoring when only a small number of light rays are reflected.

@@ -31,9 +31,14 @@ def example_5():
     return raytrace(scene)
 
 
+def example_6():
+    scene = Scenes.scenes.scenes["example_6"]
+    return raytrace(scene)
+
+
 def main():
     start = time.time()
-    image = example_5()
+    image = example_6()
     plt.imsave(image_directory + "result.png", image)
     print(f"The program took {time.time() - start} seconds to run.")
 

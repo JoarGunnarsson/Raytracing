@@ -180,65 +180,6 @@ class Triangle(Plane):
         return distances_to_start
 
 
-class Quad(Plane):
-    def __init__(self, p1=np.array([0.0, 0.0, 0.0]), p2=np.array([1.0, 0.0, 0.0]), p3=np.array([0.0, 1.0, 0.0]),
-                 p4=np.array([0.0, 0.0, 0.0]),
-                 material=materials.Material(colors.WHITE)):
-        x, y, z = p1
-        v1 = p2 - p1
-        v2 = p3 - p1
-        self.p1 = p1
-        self.p2 = p2
-        self.p3 = p3
-        self.p4 = p4
-        super().__init__(x, y, z, v1, v2, material)
-
-    def intersection(self, starting_positions, direction_vectors, mode="first"):
-        shifted_points = starting_positions - self.position
-        distances = super().compute_distance_in_centered_system(shifted_points, direction_vectors, mode)
-
-        in_plane_positions = starting_positions + direction_vectors * distances[:, None]
-        vec1 = np.cross(self.normal_vector, self.p2 - self.p1)
-        if np.dot(self.p3-self.p2, vec1) < 0:
-            vec1 = -vec1
-        start_dot_vec1 = np.sum((in_plane_positions - self.p1) * vec1, axis=-1)
-        neg_indices = start_dot_vec1 < -const.EPSILON
-
-        vec2 = np.cross(self.normal_vector, self.p3 - self.p2)
-        if np.dot(self.p4 - self.p3, vec2) < 0:
-            vec2 = -vec2
-        start_dot_vec2 = np.sum((in_plane_positions - self.p2) * vec2, axis=-1)
-
-        neg_indices = np.logical_or(neg_indices, start_dot_vec2 < -const.EPSILON)
-
-        vec3 = np.cross(self.normal_vector, self.p4 - self.p3)
-        if np.dot(self.p1 - self.p4, vec3) < 0:
-            vec3 = -vec3
-        start_dot_vec3 = np.sum((in_plane_positions -self.p3) * vec3, axis=-1)
-
-        neg_indices = np.logical_or(neg_indices, start_dot_vec3 < -const.EPSILON)
-
-        vec4 = np.cross(self.normal_vector, self.p1 - self.p4)
-        if np.dot(self.p2 - self.p1, vec4) < 0:
-            vec4 = -vec4
-        start_dot_vec4= np.sum((in_plane_positions - self.p4) * vec4, axis=-1)
-
-        neg_indices = np.logical_or(neg_indices, start_dot_vec4 < -const.EPSILON)
-
-        distances[neg_indices] = -1
-        return distances
-
-    def get_normal_vectors(self, intersection_points):
-        normal_vectors = np.full(intersection_points.shape, self.normal_vector)
-        return normal_vectors
-
-    def compute_distance(self, intersection_points):
-        distances_to_start = np.sum((intersection_points - self.position) * -self.normal_vector, axis=-1)
-        double_check_distance = self.intersection(intersection_points, np.full(intersection_points.shape, -self.normal_vector))
-        distances_to_start[double_check_distance < -const.EPSILON] = np.inf
-        return distances_to_start
-
-
 class Ellipse(Plane):
     def __init__(self, x=4, y=0, z=0, v1=np.array([1.0, 0.0, 0.0]), v2=np.array([0.0, 1.0, 0.0]), radius=1, a=1, b=1,
                  material=materials.Material(colors.WHITE)):
@@ -644,8 +585,6 @@ def load_object_from_file(filename, material=materials.Material(diffuse_color=co
                 elif len(vertex_indices) == 4:
                     primitives.append(Triangle(vertices[vertex_indices[0]-1], vertices[vertex_indices[1]-1], vertices[vertex_indices[2]-1]))
                     primitives.append(Triangle(vertices[vertex_indices[0]-1], vertices[vertex_indices[2]-1], vertices[vertex_indices[3]-1]))
-                    #primitives.append(Quad(vertices[vertex_indices[0] - 1], vertices[vertex_indices[1] - 1],
-                     #                          vertices[vertex_indices[2] - 1], vertices[vertex_indices[3] - 1]))
                 else:
                     print("Invalid face encountered, skipping it...")
 
