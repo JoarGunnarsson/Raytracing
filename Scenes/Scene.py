@@ -5,4 +5,3 @@ class Scene:
         self.ambient_light = ambient_light
         self.camera = camera
         self.screen = screen
-        pass

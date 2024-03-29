@@ -88,10 +88,11 @@ class Plane(Object):
     def compute_distance_in_centered_system(self, starting_positions, direction_vectors, mode):
         distances = -np.ones(starting_positions.shape[0])
 
-        distances_to_start = np.sum(starting_positions * self.normal_vector, axis=-1)
         direction_dot_normal = np.sum(direction_vectors * -self.normal_vector, axis=-1)
         non_perpendicular_indices = np.abs(direction_dot_normal) > const.EPSILON
-        distances[non_perpendicular_indices] = distances_to_start[non_perpendicular_indices] / direction_dot_normal[
+
+        distances_to_start = np.sum(starting_positions[non_perpendicular_indices] * self.normal_vector, axis=-1)
+        distances[non_perpendicular_indices] = distances_to_start / direction_dot_normal[
             non_perpendicular_indices]
 
         return distances - const.EPSILON
@@ -150,80 +151,21 @@ class Triangle(Plane):
         if np.dot(self.p3-self.p2, vec1) < 0:
             vec1 = -vec1
         start_dot_vec1 = np.sum((in_plane_positions - self.p1) * vec1, axis=-1)
-        neg_indices = start_dot_vec1 < -const.EPSILON
+        neg_indices = start_dot_vec1 < -const.EPSILON*0
 
         vec2 = np.cross(self.normal_vector, self.p3 - self.p2)
         if np.dot(self.p1 - self.p3, vec2) < 0:
             vec2 = -vec2
         start_dot_vec2 = np.sum((in_plane_positions - self.p2) * vec2, axis=-1)
 
-        neg_indices = np.logical_or(neg_indices, start_dot_vec2 < -const.EPSILON)
+        neg_indices = np.logical_or(neg_indices, start_dot_vec2 < -const.EPSILON*0)
 
         vec3 = np.cross(self.normal_vector, self.p1 - self.p3)
         if np.dot(self.p2 - self.p1, vec3) < 0:
             vec3 = -vec3
-        start_dot_vec3 = np.sum((in_plane_positions -self.p3) * vec3, axis=-1)
+        start_dot_vec3 = np.sum((in_plane_positions - self.p3) * vec3, axis=-1)
 
-        neg_indices = np.logical_or(neg_indices, start_dot_vec3 < -const.EPSILON)
-
-        distances[neg_indices] = -1
-        return distances
-
-    def get_normal_vectors(self, intersection_points):
-        normal_vectors = np.full(intersection_points.shape, self.normal_vector)
-        return normal_vectors
-
-    def compute_distance(self, intersection_points):
-        distances_to_start = np.sum((intersection_points - self.position) * -self.normal_vector, axis=-1)
-        double_check_distance = self.intersection(intersection_points, np.full(intersection_points.shape, -self.normal_vector))
-        distances_to_start[double_check_distance < -const.EPSILON] = np.inf
-        return distances_to_start
-
-
-class Quad(Plane):
-    def __init__(self, p1=np.array([0.0, 0.0, 0.0]), p2=np.array([1.0, 0.0, 0.0]), p3=np.array([0.0, 1.0, 0.0]),
-                 p4=np.array([0.0, 0.0, 0.0]),
-                 material=materials.Material(colors.WHITE)):
-        x, y, z = p1
-        v1 = p2 - p1
-        v2 = p3 - p1
-        self.p1 = p1
-        self.p2 = p2
-        self.p3 = p3
-        self.p4 = p4
-        super().__init__(x, y, z, v1, v2, material)
-
-    def intersection(self, starting_positions, direction_vectors, mode="first"):
-        shifted_points = starting_positions - self.position
-        distances = super().compute_distance_in_centered_system(shifted_points, direction_vectors, mode)
-
-        in_plane_positions = starting_positions + direction_vectors * distances[:, None]
-        vec1 = np.cross(self.normal_vector, self.p2 - self.p1)
-        if np.dot(self.p3-self.p2, vec1) < 0:
-            vec1 = -vec1
-        start_dot_vec1 = np.sum((in_plane_positions - self.p1) * vec1, axis=-1)
-        neg_indices = start_dot_vec1 < -const.EPSILON
-
-        vec2 = np.cross(self.normal_vector, self.p3 - self.p2)
-        if np.dot(self.p4 - self.p3, vec2) < 0:
-            vec2 = -vec2
-        start_dot_vec2 = np.sum((in_plane_positions - self.p2) * vec2, axis=-1)
-
-        neg_indices = np.logical_or(neg_indices, start_dot_vec2 < -const.EPSILON)
-
-        vec3 = np.cross(self.normal_vector, self.p4 - self.p3)
-        if np.dot(self.p1 - self.p4, vec3) < 0:
-            vec3 = -vec3
-        start_dot_vec3 = np.sum((in_plane_positions -self.p3) * vec3, axis=-1)
-
-        neg_indices = np.logical_or(neg_indices, start_dot_vec3 < -const.EPSILON)
-
-        vec4 = np.cross(self.normal_vector, self.p1 - self.p4)
-        if np.dot(self.p2 - self.p1, vec4) < 0:
-            vec4 = -vec4
-        start_dot_vec4= np.sum((in_plane_positions - self.p4) * vec4, axis=-1)
-
-        neg_indices = np.logical_or(neg_indices, start_dot_vec4 < -const.EPSILON)
+        neg_indices = np.logical_or(neg_indices, start_dot_vec3 < -const.EPSILON*0)
 
         distances[neg_indices] = -1
         return distances
@@ -234,8 +176,9 @@ class Quad(Plane):
 
     def compute_distance(self, intersection_points):
         distances_to_start = np.sum((intersection_points - self.position) * -self.normal_vector, axis=-1)
-        double_check_distance = self.intersection(intersection_points, np.full(intersection_points.shape, -self.normal_vector))
-        distances_to_start[double_check_distance < -const.EPSILON] = np.inf
+        double_check_distance1 = self.intersection(intersection_points, np.full(intersection_points.shape, -self.normal_vector))
+        double_check_distance2 = self.intersection(intersection_points, np.full(intersection_points.shape, self.normal_vector))
+        distances_to_start[np.logical_and(double_check_distance1 < -const.EPSILON, double_check_distance2 < -const.EPSILON)] = np.inf
         return distances_to_start
 
 
@@ -264,27 +207,38 @@ class Ellipse(Plane):
 
 
 class ObjectUnion:
-    def __init__(self, objects=None, material=materials.Material(colors.YELLOW)):
+    def __init__(self, objects=None, material=materials.Material(colors.YELLOW), center=None, radius=None):
         if objects is None:
             objects = []
         self.objects = objects
         self.material = material
+        if center is not None and radius is not None:
+            self.covering_sphere = Sphere(center[0], center[1], center[2], radius)
+        else:
+            self.covering_sphere = None
 
     def intersection(self, starting_positions, direction_vectors, mode="first"):
+        filtering_indices = np.ones(starting_positions.shape[0], dtype=bool)
+        distance = -np.ones((starting_positions.shape[0], 1))
+        if self.covering_sphere is not None:
+            distance_to_covering_sphere = self.covering_sphere.intersection(starting_positions, direction_vectors, mode="first")
+            filtering_indices[distance_to_covering_sphere < 0] = False
+
         if mode == "first":
-            obj, distance = find_closest_intersected_object(starting_positions, direction_vectors, self.objects)
-            distance[obj == -1] = -1
+            obj, dist = find_closest_intersected_object(starting_positions[filtering_indices], direction_vectors[filtering_indices], self.objects)
+            dist[obj == -1] = -1
+            distance[filtering_indices] = dist
 
         elif mode == "second":
-            obj, distance = find_second_closest_intersected_object(starting_positions, direction_vectors, self.objects)
-            distance[obj == -1] = -1
+            obj, dist = find_second_closest_intersected_object(starting_positions[filtering_indices], direction_vectors[filtering_indices], self.objects)
+            dist[obj == -1] = -1
+            distance[filtering_indices] = dist
         else:
             raise ValueError("Not a valid mode.")
 
         return distance.flatten()
 
     def get_normal_vectors(self, intersection_points):
-        # TODO: Ensure point is actually
         size, _ = intersection_points.shape
         min_distance = np.full(size, np.inf)
         normal_vectors = np.zeros((size, 3))
@@ -612,11 +566,12 @@ def exponential_easing(x, a, d):
     return 1 - 1 / (1 + np.exp(-10 / d * (x - a - d / 2)))
 
 
-def load_object_from_file(filename, material=materials.Material(diffuse_color=colors.YELLOW)):
+def load_object_from_file(filename, size=1, center=np.array([0.0, 0.0, 0.0]), material=materials.Material(diffuse_color=colors.YELLOW)):
     with open(filename, "r") as file:
         contents = file.read()
         lines = contents.split("\n")
         vertices = []
+        normal_vectors = []
         primitives = []
         average_position = np.array([0.0, 0.0, 0.0])
         for line in lines:
@@ -628,9 +583,16 @@ def load_object_from_file(filename, material=materials.Material(diffuse_color=co
                 vertices.append(vertex)
                 average_position += vertex
 
-        average_position /= len(vertices)
+            elif line[0] == 'v' and line[1] == "n":
+                normal_vector = line.split(" ")[1:]
+                normal_vector = np.array([float(x) for x in normal_vector if x != ""])
+                normal_vectors.append(normal_vector)
 
-        vertices -= average_position
+        average_position /= len(vertices)
+        vertices = np.array(vertices)
+        vertices = vertices - average_position + center
+        max_distance = np.max(np.sqrt(np.sum(vertices**2, axis=-1)))
+        vertices = vertices * size / max_distance
         for line in lines:
             if line == "":
                 continue
@@ -638,16 +600,21 @@ def load_object_from_file(filename, material=materials.Material(diffuse_color=co
             elif line[0] == 'f':
                 vertex_data = line.split(" ")[1:]
                 vertex_indices = [int(x.split("/")[0]) for x in vertex_data if x != ""]
-
+                vertex_normal_indices = [int(x.split("/")[-1]) for x in vertex_data if x != ""]
                 if len(vertex_indices) == 3:
-                    primitives.append(Triangle(vertices[vertex_indices[0]-1], vertices[vertex_indices[1]-1], vertices[vertex_indices[2]-1]))
+                    p1, p2, p3 = [vertices[vertex_indices[i] - 1] for i in range(3)]
+                    tri = Triangle(p1, p2, p3)
+                    n1, n2, n3 = [normal_vectors[vertex_normal_indices[i] - 1] for i in range(3)]
+                    if np.dot(tri.normal_vector, n1) < 0:
+                        tri = Triangle(p1, p3, p2)
+                    primitives.append(tri)
+
                 elif len(vertex_indices) == 4:
-                    primitives.append(Triangle(vertices[vertex_indices[0]-1], vertices[vertex_indices[1]-1], vertices[vertex_indices[2]-1]))
-                    primitives.append(Triangle(vertices[vertex_indices[0]-1], vertices[vertex_indices[2]-1], vertices[vertex_indices[3]-1]))
-                    #primitives.append(Quad(vertices[vertex_indices[0] - 1], vertices[vertex_indices[1] - 1],
-                     #                          vertices[vertex_indices[2] - 1], vertices[vertex_indices[3] - 1]))
+                    p1, p2, p3, p4 = [vertices[vertex_indices[i] - 1] for i in range(4)]
+                    primitives.append(Triangle(p1, p2, p3))
+                    primitives.append(Triangle(p1, p3, p4))
                 else:
                     print("Invalid face encountered, skipping it...")
 
     print(f"Finished loading object. A total of {len(primitives)} triangles/quads were loaded.")
-    return ObjectUnion(primitives, material)
+    return ObjectUnion(primitives, material, center, size)
